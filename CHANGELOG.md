@@ -3,6 +3,14 @@
 FEATURES:
 
 * **New Data Source:** `azurerm_azuread_application` [GH-1552]
+* **New Data Source:** `azurerm_logic_app_workflow` [GH-1266]
+* **New Resource:** `azurerm_eventhub_namespace_authorization_rule` [GH-1572]
+* **New Resource:** `azurerm_logic_app_action_custom` [GH-1266]
+* **New Resource:** `azurerm_logic_app_action_http` [GH-1266]
+* **New Resource:** `azurerm_logic_app_trigger_custom` [GH-1266]
+* **New Resource:** `azurerm_logic_app_trigger_http_request` [GH-1266]
+* **New Resource:** `azurerm_logic_app_trigger_recurrence` [GH-1266]
+* **New Resource:** `azurerm_logic_app_workflow` [GH-1266]
 * **New Resource:** `azurerm_servicebus_queue_authorization_rule` [GH-1543]
 
 IMPROVEMENTS:
@@ -16,10 +24,13 @@ IMPROVEMENTS:
 * `azurerm_container_group` - support for images hosted in a private registry [GH-1529]
 * `azurerm_function_app` - adding support for the `site_credential` block [GH-1567]
 * `azurerm_function_app` - only setting `WEBSITE_CONTENTSHARE` and `WEBSITE_CONTENTAZUREFILECONNECTIONSTRING` for Consumption Apps [GH-1515]
+* `azurerm_network_security_rule` - a maximum of 1 Application Security Group can be set per Security Rule  [GH-1587]
+* `azurerm_virtual_machine_scale_set` - `sku` property is now a list #1558 [GH-1558]
 
 BUG FIXES:
 
 * `azurerm_application_insights` - fixing a bug where `application_type` was set to `other` [GH-1563]
+* `azurerm_lb` - allow `subnet_id` to be set to an empty value [GH-1588]
 * `azurerm_servicebus_subscription` - only sending `correlation_filter` values if they're set [GH-1565]
 * `azurerm_servicebus_subscription` - setting the `default_message_ttl` field [GH-1568]
 * `azurerm_snapshot` - allowing dashes in the `name` field [GH-1574]

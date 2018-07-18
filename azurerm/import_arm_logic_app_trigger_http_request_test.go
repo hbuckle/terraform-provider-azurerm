@@ -7,23 +7,20 @@ import (
 	"github.com/hashicorp/terraform/helper/resource"
 )
 
-func TestAccAzureRMEventHubAuthorizationRule_importListen(t *testing.T) {
-	resourceName := "azurerm_eventhub_authorization_rule.test"
-
+func TestAccAzureRMLogicAppTriggerHttpRequest_importBasic(t *testing.T) {
 	ri := acctest.RandInt()
-	config := testAccAzureRMEventHubAuthorizationRule_listen(ri, testLocation())
+	config := testAccAzureRMLogicAppTriggerHttpRequest_basic(ri, testLocation())
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
-		CheckDestroy: testCheckAzureRMEventHubAuthorizationRuleDestroy,
+		CheckDestroy: testCheckAzureRMLogicAppWorkflowDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: config,
 			},
-
 			{
-				ResourceName:      resourceName,
+				ResourceName:      "azurerm_logic_app_trigger_http_request.test",
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -31,23 +28,20 @@ func TestAccAzureRMEventHubAuthorizationRule_importListen(t *testing.T) {
 	})
 }
 
-func TestAccAzureRMEventHubAuthorizationRule_importSend(t *testing.T) {
-	resourceName := "azurerm_eventhub_authorization_rule.test"
-
+func TestAccAzureRMLogicAppTriggerHttpRequest_importFullSchema(t *testing.T) {
 	ri := acctest.RandInt()
-	config := testAccAzureRMEventHubAuthorizationRule_send(ri, testLocation())
+	config := testAccAzureRMLogicAppTriggerHttpRequest_fullSchema(ri, testLocation())
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
-		CheckDestroy: testCheckAzureRMEventHubAuthorizationRuleDestroy,
+		CheckDestroy: testCheckAzureRMLogicAppWorkflowDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: config,
 			},
-
 			{
-				ResourceName:      resourceName,
+				ResourceName:      "azurerm_logic_app_trigger_http_request.test",
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -55,23 +49,20 @@ func TestAccAzureRMEventHubAuthorizationRule_importSend(t *testing.T) {
 	})
 }
 
-func TestAccAzureRMEventHubAuthorizationRule_importReadWrite(t *testing.T) {
-	resourceName := "azurerm_eventhub_authorization_rule.test"
-
+func TestAccAzureRMLogicAppTriggerHttpRequest_importMethod(t *testing.T) {
 	ri := acctest.RandInt()
-	config := testAccAzureRMEventHubAuthorizationRule_readWrite(ri, testLocation())
+	config := testAccAzureRMLogicAppTriggerHttpRequest_method(ri, testLocation())
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
-		CheckDestroy: testCheckAzureRMEventHubAuthorizationRuleDestroy,
+		CheckDestroy: testCheckAzureRMLogicAppWorkflowDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: config,
 			},
-
 			{
-				ResourceName:      resourceName,
+				ResourceName:      "azurerm_logic_app_trigger_http_request.test",
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
@@ -79,23 +70,20 @@ func TestAccAzureRMEventHubAuthorizationRule_importReadWrite(t *testing.T) {
 	})
 }
 
-func TestAccAzureRMEventHubAuthorizationRule_importManage(t *testing.T) {
-	resourceName := "azurerm_eventhub_authorization_rule.test"
-
+func TestAccAzureRMLogicAppTriggerHttpRequest_importRelativePath(t *testing.T) {
 	ri := acctest.RandInt()
-	config := testAccAzureRMEventHubAuthorizationRule_manage(ri, testLocation())
+	config := testAccAzureRMLogicAppTriggerHttpRequest_relativePath(ri, testLocation())
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
-		CheckDestroy: testCheckAzureRMEventHubAuthorizationRuleDestroy,
+		CheckDestroy: testCheckAzureRMLogicAppWorkflowDestroy,
 		Steps: []resource.TestStep{
 			{
 				Config: config,
 			},
-
 			{
-				ResourceName:      resourceName,
+				ResourceName:      "azurerm_logic_app_trigger_http_request.test",
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
