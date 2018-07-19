@@ -132,6 +132,7 @@ func Provider() terraform.ResourceProvider {
 			"azurerm_automation_runbook":                      resourceArmAutomationRunbook(),
 			"azurerm_automation_schedule":                     resourceArmAutomationSchedule(),
 			"azurerm_availability_set":                        resourceArmAvailabilitySet(),
+			"azurerm_azure_firewall":                          resourceArmAzureFirewall(),
 			"azurerm_cdn_endpoint":                            resourceArmCdnEndpoint(),
 			"azurerm_cdn_profile":                             resourceArmCdnProfile(),
 			"azurerm_container_registry":                      resourceArmContainerRegistry(),
