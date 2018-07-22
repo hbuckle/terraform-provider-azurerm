@@ -18,7 +18,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/containerregistry/mgmt/2017-10-01/containerregistry"
 	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2018-03-31/containerservice"
 	"github.com/Azure/azure-sdk-for-go/services/cosmos-db/mgmt/2015-04-08/documentdb"
-	"github.com/Azure/azure-sdk-for-go/services/datalake/store/mgmt/2016-11-01/account"
+	analyticsAccount "github.com/Azure/azure-sdk-for-go/services/datalake/analytics/mgmt/2016-11-01/account"
+	storeAccount "github.com/Azure/azure-sdk-for-go/services/datalake/store/mgmt/2016-11-01/account"
 	"github.com/Azure/azure-sdk-for-go/services/eventgrid/mgmt/2018-01-01/eventgrid"
 	"github.com/Azure/azure-sdk-for-go/services/eventhub/mgmt/2017-04-01/eventhub"
 	"github.com/Azure/azure-sdk-for-go/services/graphrbac/1.6/graphrbac"
@@ -26,12 +27,13 @@ import (
 	keyVault "github.com/Azure/azure-sdk-for-go/services/keyvault/2016-10-01/keyvault"
 	"github.com/Azure/azure-sdk-for-go/services/keyvault/mgmt/2016-10-01/keyvault"
 	"github.com/Azure/azure-sdk-for-go/services/logic/mgmt/2016-06-01/logic"
-	"github.com/Azure/azure-sdk-for-go/services/monitor/mgmt/2018-03-01/insights"
 	"github.com/Azure/azure-sdk-for-go/services/mysql/mgmt/2017-12-01/mysql"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/notificationhubs/mgmt/2017-04-01/notificationhubs"
 	"github.com/Azure/azure-sdk-for-go/services/postgresql/mgmt/2017-12-01/postgresql"
 	"github.com/Azure/azure-sdk-for-go/services/preview/authorization/mgmt/2018-01-01-preview/authorization"
 	"github.com/Azure/azure-sdk-for-go/services/preview/dns/mgmt/2018-03-01-preview/dns"
+	"github.com/Azure/azure-sdk-for-go/services/preview/monitor/mgmt/2018-03-01/insights"
 	"github.com/Azure/azure-sdk-for-go/services/preview/msi/mgmt/2015-08-31-preview/msi"
 	"github.com/Azure/azure-sdk-for-go/services/preview/operationalinsights/mgmt/2015-11-01-preview/operationalinsights"
 	"github.com/Azure/azure-sdk-for-go/services/preview/operationsmanagement/mgmt/2015-11-01-preview/operationsmanagement"
@@ -106,6 +108,9 @@ type ArmClient struct {
 	applicationsClient      graphrbac.ApplicationsClient
 	servicePrincipalsClient graphrbac.ServicePrincipalsClient
 
+	// Autoscale Settings
+	autoscaleSettingsClient insights.AutoscaleSettingsClient
+
 	// CDN
 	cdnCustomDomainsClient cdn.CustomDomainsClient
 	cdnEndpointsClient     cdn.EndpointsClient
@@ -143,8 +148,12 @@ type ArmClient struct {
 	sqlVirtualNetworkRulesClient         sql.VirtualNetworkRulesClient
 
 	// Data Lake Store
-	dataLakeStoreAccountClient       account.AccountsClient
-	dataLakeStoreFirewallRulesClient account.FirewallRulesClient
+	dataLakeStoreAccountClient       storeAccount.AccountsClient
+	dataLakeStoreFirewallRulesClient storeAccount.FirewallRulesClient
+
+	// Data Lake Store
+	dataLakeAnalyticsAccountClient       analyticsAccount.AccountsClient
+	dataLakeAnalyticsFirewallRulesClient analyticsAccount.FirewallRulesClient
 
 	// KeyVault
 	keyVaultClient           keyvault.VaultsClient
@@ -182,6 +191,10 @@ type ArmClient struct {
 	vnetClient                      network.VirtualNetworksClient
 	vnetPeeringsClient              network.VirtualNetworkPeeringsClient
 	watcherClient                   network.WatchersClient
+
+	// Notification Hubs
+	notificationHubsClient       notificationhubs.Client
+	notificationNamespacesClient notificationhubs.NamespacesClient
 
 	// Recovery Services
 	recoveryServicesVaultsClient recoveryservices.VaultsClient
@@ -405,8 +418,10 @@ func getArmClient(c *authentication.Config) (*ArmClient, error) {
 	client.registerLogicClients(endpoint, c.SubscriptionID, auth, sender)
 	client.registerMonitorClients(endpoint, c.SubscriptionID, auth, sender)
 	client.registerNetworkingClients(endpoint, c.SubscriptionID, auth, sender)
+	client.registerNotificationHubsClient(endpoint, c.SubscriptionID, auth, sender)
 	client.registerOperationalInsightsClients(endpoint, c.SubscriptionID, auth, sender)
 	client.registerRecoveryServiceClients(endpoint, c.SubscriptionID, auth)
+	client.registerPolicyClients(endpoint, c.SubscriptionID, auth)
 	client.registerRedisClients(endpoint, c.SubscriptionID, auth, sender)
 	client.registerRelayClients(endpoint, c.SubscriptionID, auth, sender)
 	client.registerResourcesClients(endpoint, c.SubscriptionID, auth)
@@ -416,7 +431,6 @@ func getArmClient(c *authentication.Config) (*ArmClient, error) {
 	client.registerStorageClients(endpoint, c.SubscriptionID, auth)
 	client.registerTrafficManagerClients(endpoint, c.SubscriptionID, auth)
 	client.registerWebClients(endpoint, c.SubscriptionID, auth)
-	client.registerPolicyClients(endpoint, c.SubscriptionID, auth)
 
 	return &client, nil
 }
@@ -665,13 +679,21 @@ func (c *ArmClient) registerDatabases(endpoint, subscriptionId string, auth auto
 }
 
 func (c *ArmClient) registerDataLakeStoreClients(endpoint, subscriptionId string, auth autorest.Authorizer, sender autorest.Sender) {
-	accountClient := account.NewAccountsClientWithBaseURI(endpoint, subscriptionId)
-	c.configureClient(&accountClient.Client, auth)
-	c.dataLakeStoreAccountClient = accountClient
+	storeAccountClient := storeAccount.NewAccountsClientWithBaseURI(endpoint, subscriptionId)
+	c.configureClient(&storeAccountClient.Client, auth)
+	c.dataLakeStoreAccountClient = storeAccountClient
 
-	firewallRulesClient := account.NewFirewallRulesClientWithBaseURI(endpoint, subscriptionId)
-	c.configureClient(&firewallRulesClient.Client, auth)
-	c.dataLakeStoreFirewallRulesClient = firewallRulesClient
+	storeFirewallRulesClient := storeAccount.NewFirewallRulesClientWithBaseURI(endpoint, subscriptionId)
+	c.configureClient(&storeFirewallRulesClient.Client, auth)
+	c.dataLakeStoreFirewallRulesClient = storeFirewallRulesClient
+
+	analyticsAccountClient := analyticsAccount.NewAccountsClientWithBaseURI(endpoint, subscriptionId)
+	c.configureClient(&analyticsAccountClient.Client, auth)
+	c.dataLakeAnalyticsAccountClient = analyticsAccountClient
+
+	analyticsFirewallRulesClient := analyticsAccount.NewFirewallRulesClientWithBaseURI(endpoint, subscriptionId)
+	c.configureClient(&analyticsFirewallRulesClient.Client, auth)
+	c.dataLakeAnalyticsFirewallRulesClient = analyticsFirewallRulesClient
 }
 
 func (c *ArmClient) registerDeviceClients(endpoint, subscriptionId string, auth autorest.Authorizer, sender autorest.Sender) {
@@ -750,6 +772,10 @@ func (c *ArmClient) registerMonitorClients(endpoint, subscriptionId string, auth
 	arc.Authorizer = auth
 	arc.Sender = autorest.CreateSender(withRequestLogging())
 	c.monitorAlertRulesClient = arc
+
+	autoscaleSettingsClient := insights.NewAutoscaleSettingsClientWithBaseURI(endpoint, subscriptionId)
+	c.configureClient(&autoscaleSettingsClient.Client, auth)
+	c.autoscaleSettingsClient = autoscaleSettingsClient
 }
 
 func (c *ArmClient) registerNetworkingClients(endpoint, subscriptionId string, auth autorest.Authorizer, sender autorest.Sender) {
@@ -840,6 +866,16 @@ func (c *ArmClient) registerNetworkingClients(endpoint, subscriptionId string, a
 	watchersClient := network.NewWatchersClientWithBaseURI(endpoint, subscriptionId)
 	c.configureClient(&watchersClient.Client, auth)
 	c.watcherClient = watchersClient
+}
+
+func (c *ArmClient) registerNotificationHubsClient(endpoint, subscriptionId string, auth *autorest.BearerAuthorizer, sender autorest.Sender) {
+	namespacesClient := notificationhubs.NewNamespacesClientWithBaseURI(endpoint, subscriptionId)
+	c.configureClient(&namespacesClient.Client, auth)
+	c.notificationNamespacesClient = namespacesClient
+
+	notificationHubsClient := notificationhubs.NewClientWithBaseURI(endpoint, subscriptionId)
+	c.configureClient(&notificationHubsClient.Client, auth)
+	c.notificationHubsClient = notificationHubsClient
 }
 
 func (c *ArmClient) registerOperationalInsightsClients(endpoint, subscriptionId string, auth autorest.Authorizer, sender autorest.Sender) {
@@ -1011,22 +1047,22 @@ func (armClient *ArmClient) getKeyForStorageAccount(ctx context.Context, resourc
 		}
 		if err != nil {
 			// We assume this is a transient error rather than a 404 (which is caught above),  so assume the
-			// account still exists.
-			return "", true, fmt.Errorf("Error retrieving keys for storage account %q: %s", storageAccountName, err)
+			// storeAccount still exists.
+			return "", true, fmt.Errorf("Error retrieving keys for storage storeAccount %q: %s", storageAccountName, err)
 		}
 
 		if accountKeys.Keys == nil {
-			return "", false, fmt.Errorf("Nil key returned for storage account %q", storageAccountName)
+			return "", false, fmt.Errorf("Nil key returned for storage storeAccount %q", storageAccountName)
 		}
 
 		keys := *accountKeys.Keys
 		if len(keys) <= 0 {
-			return "", false, fmt.Errorf("No keys returned for storage account %q", storageAccountName)
+			return "", false, fmt.Errorf("No keys returned for storage storeAccount %q", storageAccountName)
 		}
 
 		keyPtr := keys[0].Value
 		if keyPtr == nil {
-			return "", false, fmt.Errorf("The first key returned is nil for storage account %q", storageAccountName)
+			return "", false, fmt.Errorf("The first key returned is nil for storage storeAccount %q", storageAccountName)
 		}
 
 		key = *keyPtr
@@ -1048,7 +1084,7 @@ func (armClient *ArmClient) getBlobStorageClientForStorageAccount(ctx context.Co
 	storageClient, err := mainStorage.NewClient(storageAccountName, key, armClient.environment.StorageEndpointSuffix,
 		mainStorage.DefaultAPIVersion, true)
 	if err != nil {
-		return nil, true, fmt.Errorf("Error creating storage client for storage account %q: %s", storageAccountName, err)
+		return nil, true, fmt.Errorf("Error creating storage client for storage storeAccount %q: %s", storageAccountName, err)
 	}
 
 	blobClient := storageClient.GetBlobService()
@@ -1067,7 +1103,7 @@ func (armClient *ArmClient) getFileServiceClientForStorageAccount(ctx context.Co
 	storageClient, err := mainStorage.NewClient(storageAccountName, key, armClient.environment.StorageEndpointSuffix,
 		mainStorage.DefaultAPIVersion, true)
 	if err != nil {
-		return nil, true, fmt.Errorf("Error creating storage client for storage account %q: %s", storageAccountName, err)
+		return nil, true, fmt.Errorf("Error creating storage client for storage storeAccount %q: %s", storageAccountName, err)
 	}
 
 	fileClient := storageClient.GetFileService()
@@ -1086,7 +1122,7 @@ func (armClient *ArmClient) getTableServiceClientForStorageAccount(ctx context.C
 	storageClient, err := mainStorage.NewClient(storageAccountName, key, armClient.environment.StorageEndpointSuffix,
 		mainStorage.DefaultAPIVersion, true)
 	if err != nil {
-		return nil, true, fmt.Errorf("Error creating storage client for storage account %q: %s", storageAccountName, err)
+		return nil, true, fmt.Errorf("Error creating storage client for storage storeAccount %q: %s", storageAccountName, err)
 	}
 
 	tableClient := storageClient.GetTableService()
@@ -1105,7 +1141,7 @@ func (armClient *ArmClient) getQueueServiceClientForStorageAccount(ctx context.C
 	storageClient, err := mainStorage.NewClient(storageAccountName, key, armClient.environment.StorageEndpointSuffix,
 		mainStorage.DefaultAPIVersion, true)
 	if err != nil {
-		return nil, true, fmt.Errorf("Error creating storage client for storage account %q: %s", storageAccountName, err)
+		return nil, true, fmt.Errorf("Error creating storage client for storage storeAccount %q: %s", storageAccountName, err)
 	}
 
 	queueClient := storageClient.GetQueueService()
