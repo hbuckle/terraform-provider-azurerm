@@ -52,7 +52,7 @@ func resourceArmFirewall() *schema.Resource {
 							Required:     true,
 							ValidateFunc: azure.ValidateResourceID,
 						},
-						"internal_public_ip_address_id": {
+						"public_ip_address_id": {
 							Type:         schema.TypeString,
 							Required:     true,
 							ValidateFunc: azure.ValidateResourceID,
@@ -247,7 +247,7 @@ func expandArmFirewallIPConfigurations(d *schema.ResourceData) (*[]network.Azure
 		data := configRaw.(map[string]interface{})
 		name := data["name"].(string)
 		subnetId := data["subnet_id"].(string)
-		intPubID := data["internal_public_ip_address_id"].(string)
+		intPubID := data["public_ip_address_id"].(string)
 
 		subnetID, err := parseAzureResourceID(subnetId)
 		if err != nil {
@@ -310,7 +310,7 @@ func flattenArmFirewallIPConfigurations(input *[]network.AzureFirewallIPConfigur
 
 		if pip := props.PublicIPAddress; pip != nil {
 			if id := pip.ID; id != nil {
-				afIPConfig["internal_public_ip_address_id"] = *id
+				afIPConfig["public_ip_address_id"] = *id
 			}
 		}
 		result = append(result, afIPConfig)
