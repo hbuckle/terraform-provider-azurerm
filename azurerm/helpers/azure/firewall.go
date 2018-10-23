@@ -3,7 +3,7 @@ package azure
 import (
 	"fmt"
 
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-04-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2018-08-01/network"
 )
 
 // The API requires InternalPublicIPAddress to be set when for a CreateOrUpdate
