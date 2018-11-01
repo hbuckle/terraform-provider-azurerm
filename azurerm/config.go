@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
-	"net/http/httputil"
 	"os"
 	"strings"
 	"sync"
@@ -16,7 +14,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/cdn/mgmt/2017-10-12/cdn"
 	"github.com/Azure/azure-sdk-for-go/services/cognitiveservices/mgmt/2017-04-18/cognitiveservices"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2018-06-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/containerinstance/mgmt/2018-06-01/containerinstance"
+	"github.com/Azure/azure-sdk-for-go/services/containerinstance/mgmt/2018-10-01/containerinstance"
 	"github.com/Azure/azure-sdk-for-go/services/containerregistry/mgmt/2017-10-01/containerregistry"
 	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2018-03-31/containerservice"
 	"github.com/Azure/azure-sdk-for-go/services/cosmos-db/mgmt/2015-04-08/documentdb"
@@ -38,6 +36,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/postgresql/mgmt/2017-12-01/postgresql"
 	"github.com/Azure/azure-sdk-for-go/services/preview/apimanagement/mgmt/2018-06-01-preview/apimanagement"
 	"github.com/Azure/azure-sdk-for-go/services/preview/authorization/mgmt/2018-01-01-preview/authorization"
+	"github.com/Azure/azure-sdk-for-go/services/preview/devspaces/mgmt/2018-06-01-preview/devspaces"
 	"github.com/Azure/azure-sdk-for-go/services/preview/dns/mgmt/2018-03-01-preview/dns"
 	"github.com/Azure/azure-sdk-for-go/services/preview/monitor/mgmt/2018-03-01/insights"
 	"github.com/Azure/azure-sdk-for-go/services/preview/msi/mgmt/2015-08-31-preview/msi"
@@ -61,13 +60,15 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage"
 	"github.com/Azure/azure-sdk-for-go/services/trafficmanager/mgmt/2017-05-01/trafficmanager"
 	"github.com/Azure/azure-sdk-for-go/services/web/mgmt/2018-02-01/web"
+
 	mainStorage "github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
-	"github.com/Azure/go-autorest/autorest/azure"
+	az "github.com/Azure/go-autorest/autorest/azure"
 	uuid "github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/terraform/httpclient"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/authentication"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/azure"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 	"github.com/terraform-providers/terraform-provider-azurerm/version"
 )
@@ -79,21 +80,22 @@ type ArmClient struct {
 	tenantId                 string
 	subscriptionId           string
 	usingServicePrincipal    bool
-	environment              azure.Environment
+	environment              az.Environment
 	skipProviderRegistration bool
 
 	StopContext context.Context
 
 	cosmosDBClient documentdb.DatabaseAccountsClient
 
-	automationAccountClient              automation.AccountClient
-	automationCredentialClient           automation.CredentialClient
-	automationDscConfigurationClient     automation.DscConfigurationClient
-	automationDscNodeConfigurationClient automation.DscNodeConfigurationClient
-	automationModuleClient               automation.ModuleClient
-	automationRunbookClient              automation.RunbookClient
-	automationRunbookDraftClient         automation.RunbookDraftClient
-	automationScheduleClient             automation.ScheduleClient
+	automationAccountClient               automation.AccountClient
+	automationAgentRegistrationInfoClient automation.AgentRegistrationInformationClient
+	automationCredentialClient            automation.CredentialClient
+	automationDscConfigurationClient      automation.DscConfigurationClient
+	automationDscNodeConfigurationClient  automation.DscNodeConfigurationClient
+	automationModuleClient                automation.ModuleClient
+	automationRunbookClient               automation.RunbookClient
+	automationRunbookDraftClient          automation.RunbookDraftClient
+	automationScheduleClient              automation.ScheduleClient
 
 	dnsClient   dns.RecordSetsClient
 	zonesClient dns.ZonesClient
@@ -108,8 +110,7 @@ type ArmClient struct {
 	eventHubConsumerGroupClient eventhub.ConsumerGroupsClient
 	eventHubNamespacesClient    eventhub.NamespacesClient
 
-	workspacesClient operationalinsights.WorkspacesClient
-	solutionsClient  operationsmanagement.SolutionsClient
+	solutionsClient operationsmanagement.SolutionsClient
 
 	redisClient               redis.Client
 	redisFirewallClient       redis.FirewallRulesClient
@@ -162,6 +163,9 @@ type ArmClient struct {
 	devTestVirtualMachinesClient dtl.VirtualMachinesClient
 	devTestVirtualNetworksClient dtl.VirtualNetworksClient
 
+	// DevSpace
+	devSpaceControllerClient devspaces.ControllersClient
+
 	// Databases
 	mysqlConfigurationsClient                mysql.ConfigurationsClient
 	mysqlDatabasesClient                     mysql.DatabasesClient
@@ -196,6 +200,10 @@ type ArmClient struct {
 	// KeyVault
 	keyVaultClient           keyvault.VaultsClient
 	keyVaultManagementClient keyVault.BaseClient
+
+	// Log Analytics
+	linkedServicesClient operationalinsights.LinkedServicesClient
+	workspacesClient     operationalinsights.WorkspacesClient
 
 	// Logic
 	logicWorkflowsClient logic.WorkflowsClient
@@ -258,8 +266,9 @@ type ArmClient struct {
 	subscriptionsClient   subscriptions.Client
 
 	// Scheduler
-	schedulerJobCollectionsClient scheduler.JobCollectionsClient
-	schedulerJobsClient           scheduler.JobsClient
+	schedulerJobCollectionsClient scheduler.JobCollectionsClient //nolint: megacheck
+
+	schedulerJobsClient scheduler.JobsClient //nolint: megacheck
 
 	// Search
 	searchServicesClient  search.ServicesClient
@@ -322,49 +331,9 @@ func (c *ArmClient) configureClient(client *autorest.Client, auth autorest.Autho
 	setUserAgent(client)
 	client.Authorizer = auth
 	//client.RequestInspector = azure.WithClientID(clientRequestID())
-	client.Sender = autorest.CreateSender(withRequestLogging())
+	client.Sender = azure.BuildSender()
 	client.SkipResourceProviderRegistration = c.skipProviderRegistration
 	client.PollingDuration = 60 * time.Minute
-}
-
-func withRequestLogging() autorest.SendDecorator {
-	return func(s autorest.Sender) autorest.Sender {
-		return autorest.SenderFunc(func(r *http.Request) (*http.Response, error) {
-			// strip the authorization header prior to printing
-			authHeaderName := "Authorization"
-			auth := r.Header.Get(authHeaderName)
-			if auth != "" {
-				r.Header.Del(authHeaderName)
-			}
-
-			// dump request to wire format
-			if dump, err := httputil.DumpRequestOut(r, true); err == nil {
-				log.Printf("[DEBUG] AzureRM Request: \n%s\n", dump)
-			} else {
-				// fallback to basic message
-				log.Printf("[DEBUG] AzureRM Request: %s to %s\n", r.Method, r.URL)
-			}
-
-			// add the auth header back
-			if auth != "" {
-				r.Header.Add(authHeaderName, auth)
-			}
-
-			resp, err := s.Do(r)
-			if resp != nil {
-				// dump response to wire format
-				if dump, err := httputil.DumpResponse(resp, true); err == nil {
-					log.Printf("[DEBUG] AzureRM Response for %s: \n%s\n", r.URL, dump)
-				} else {
-					// fallback to basic message
-					log.Printf("[DEBUG] AzureRM Response: %s for %s\n", resp.Status, r.URL)
-				}
-			} else {
-				log.Printf("[DEBUG] Request to %s completed with no response", r.URL)
-			}
-			return resp, err
-		})
-	}
 }
 
 func setUserAgent(client *autorest.Client) {
@@ -383,63 +352,12 @@ func setUserAgent(client *autorest.Client) {
 	log.Printf("[DEBUG] AzureRM Client User Agent: %s\n", client.UserAgent)
 }
 
-func getAuthorizationToken(c *authentication.Config, oauthConfig *adal.OAuthConfig, endpoint string) (*autorest.BearerAuthorizer, error) {
-	useServicePrincipal := c.ClientSecret != ""
-
-	if useServicePrincipal {
-		spt, err := adal.NewServicePrincipalToken(*oauthConfig, c.ClientID, c.ClientSecret, endpoint)
-		if err != nil {
-			return nil, err
-		}
-
-		auth := autorest.NewBearerAuthorizer(spt)
-		return auth, nil
-	}
-
-	if c.UseMsi {
-		spt, err := adal.NewServicePrincipalTokenFromMSI(c.MsiEndpoint, endpoint)
-		if err != nil {
-			return nil, err
-		}
-		auth := autorest.NewBearerAuthorizer(spt)
-		return auth, nil
-	}
-
-	if c.IsCloudShell {
-		// load the refreshed tokens from the Azure CLI
-		err := c.LoadTokensFromAzureCLI()
-		if err != nil {
-			return nil, fmt.Errorf("Error loading the refreshed CloudShell tokens: %+v", err)
-		}
-	}
-
-	spt, err := adal.NewServicePrincipalTokenFromManualToken(*oauthConfig, c.ClientID, endpoint, *c.AccessToken)
-	if err != nil {
-		return nil, err
-	}
-
-	err = spt.Refresh()
-
-	if err != nil {
-		return nil, fmt.Errorf("Error refreshing Service Principal Token: %+v", err)
-	}
-
-	auth := autorest.NewBearerAuthorizer(spt)
-	return auth, nil
-}
-
 // getArmClient is a helper method which returns a fully instantiated
 // *ArmClient based on the Config's current settings.
 func getArmClient(c *authentication.Config) (*ArmClient, error) {
-	// detect cloud from environment
-	env, envErr := azure.EnvironmentFromName(c.Environment)
-	if envErr != nil {
-		// try again with wrapped value to support readable values like german instead of AZUREGERMANCLOUD
-		wrapped := fmt.Sprintf("AZURE%sCLOUD", c.Environment)
-		var innerErr error
-		if env, innerErr = azure.EnvironmentFromName(wrapped); innerErr != nil {
-			return nil, envErr
-		}
+	env, err := authentication.DetermineEnvironment(c.Environment)
+	if err != nil {
+		return nil, err
 	}
 
 	// client declarations:
@@ -447,7 +365,7 @@ func getArmClient(c *authentication.Config) (*ArmClient, error) {
 		clientId:                 c.ClientID,
 		tenantId:                 c.TenantID,
 		subscriptionId:           c.SubscriptionID,
-		environment:              env,
+		environment:              *env,
 		usingServicePrincipal:    c.ClientSecret != "",
 		skipProviderRegistration: c.SkipProviderRegistration,
 	}
@@ -462,25 +380,24 @@ func getArmClient(c *authentication.Config) (*ArmClient, error) {
 		return nil, fmt.Errorf("Unable to configure OAuthConfig for tenant %s", c.TenantID)
 	}
 
-	sender := autorest.CreateSender(withRequestLogging())
-
 	// Resource Manager endpoints
 	endpoint := env.ResourceManagerEndpoint
-	auth, err := getAuthorizationToken(c, oauthConfig, endpoint)
+	auth, err := authentication.GetAuthorizationToken(c, oauthConfig, endpoint)
 	if err != nil {
 		return nil, err
 	}
 
 	// Graph Endpoints
 	graphEndpoint := env.GraphEndpoint
-	graphAuth, err := getAuthorizationToken(c, oauthConfig, graphEndpoint)
+	graphAuth, err := authentication.GetAuthorizationToken(c, oauthConfig, graphEndpoint)
 	if err != nil {
 		return nil, err
 	}
 
 	// Key Vault Endpoints
+	sender := azure.BuildSender()
 	keyVaultAuth := autorest.NewBearerAuthorizerCallback(sender, func(tenantID, resource string) (*autorest.BearerAuthorizer, error) {
-		keyVaultSpt, err := getAuthorizationToken(c, oauthConfig, resource)
+		keyVaultSpt, err := authentication.GetAuthorizationToken(c, oauthConfig, resource)
 		if err != nil {
 			return nil, err
 		}
@@ -503,6 +420,7 @@ func getArmClient(c *authentication.Config) (*ArmClient, error) {
 	client.registerDatabases(endpoint, c.SubscriptionID, auth, sender)
 	client.registerDataLakeStoreClients(endpoint, c.SubscriptionID, auth)
 	client.registerDeviceClients(endpoint, c.SubscriptionID, auth)
+	client.registerDevSpaceClients(endpoint, c.SubscriptionID, auth)
 	client.registerDevTestClients(endpoint, c.SubscriptionID, auth)
 	client.registerDNSClients(endpoint, c.SubscriptionID, auth)
 	client.registerEventGridClients(endpoint, c.SubscriptionID, auth)
@@ -547,6 +465,10 @@ func (c *ArmClient) registerAutomationClients(endpoint, subscriptionId string, a
 	accountClient := automation.NewAccountClientWithBaseURI(endpoint, subscriptionId)
 	c.configureClient(&accountClient.Client, auth)
 	c.automationAccountClient = accountClient
+
+	agentRegistrationInfoClient := automation.NewAgentRegistrationInformationClientWithBaseURI(endpoint, subscriptionId)
+	c.configureClient(&agentRegistrationInfoClient.Client, auth)
+	c.automationAgentRegistrationInfoClient = agentRegistrationInfoClient
 
 	credentialClient := automation.NewCredentialClientWithBaseURI(endpoint, subscriptionId)
 	c.configureClient(&credentialClient.Client, auth)
@@ -827,6 +749,12 @@ func (c *ArmClient) registerDevTestClients(endpoint, subscriptionId string, auth
 	c.devTestVirtualNetworksClient = devTestVirtualNetworksClient
 }
 
+func (c *ArmClient) registerDevSpaceClients(endpoint, subscriptionId string, auth autorest.Authorizer) {
+	controllersClient := devspaces.NewControllersClientWithBaseURI(endpoint, subscriptionId)
+	c.configureClient(&controllersClient.Client, auth)
+	c.devSpaceControllerClient = controllersClient
+}
+
 func (c *ArmClient) registerDNSClients(endpoint, subscriptionId string, auth autorest.Authorizer) {
 	dn := dns.NewRecordSetsClientWithBaseURI(endpoint, subscriptionId)
 	c.configureClient(&dn.Client, auth)
@@ -1007,6 +935,10 @@ func (c *ArmClient) registerOperationalInsightsClients(endpoint, subscriptionId 
 	solutionsClient := operationsmanagement.NewSolutionsClientWithBaseURI(endpoint, subscriptionId, "Microsoft.OperationsManagement", "solutions", "testing")
 	c.configureClient(&solutionsClient.Client, auth)
 	c.solutionsClient = solutionsClient
+
+	lsClient := operationalinsights.NewLinkedServicesClientWithBaseURI(endpoint, subscriptionId)
+	c.configureClient(&lsClient.Client, auth)
+	c.linkedServicesClient = lsClient
 }
 
 func (c *ArmClient) registerRecoveryServiceClients(endpoint, subscriptionId string, auth autorest.Authorizer) {
@@ -1070,11 +1002,11 @@ func (c *ArmClient) registerResourcesClients(endpoint, subscriptionId string, au
 }
 
 func (c *ArmClient) registerSchedulerClients(endpoint, subscriptionId string, auth autorest.Authorizer) {
-	jobCollectionsClient := scheduler.NewJobCollectionsClientWithBaseURI(endpoint, subscriptionId)
+	jobCollectionsClient := scheduler.NewJobCollectionsClientWithBaseURI(endpoint, subscriptionId) //nolint: megacheck
 	c.configureClient(&jobCollectionsClient.Client, auth)
 	c.schedulerJobCollectionsClient = jobCollectionsClient
 
-	jobsClient := scheduler.NewJobsClientWithBaseURI(endpoint, subscriptionId)
+	jobsClient := scheduler.NewJobsClientWithBaseURI(endpoint, subscriptionId) //nolint: megacheck
 	c.configureClient(&jobsClient.Client, auth)
 	c.schedulerJobsClient = jobsClient
 }
@@ -1242,7 +1174,7 @@ func (armClient *ArmClient) getBlobStorageClientForStorageAccount(ctx context.Co
 	if err != nil {
 		return nil, accountExists, err
 	}
-	if accountExists == false {
+	if !accountExists {
 		return nil, false, nil
 	}
 
@@ -1261,7 +1193,7 @@ func (armClient *ArmClient) getFileServiceClientForStorageAccount(ctx context.Co
 	if err != nil {
 		return nil, accountExists, err
 	}
-	if accountExists == false {
+	if !accountExists {
 		return nil, false, nil
 	}
 
@@ -1280,7 +1212,7 @@ func (armClient *ArmClient) getTableServiceClientForStorageAccount(ctx context.C
 	if err != nil {
 		return nil, accountExists, err
 	}
-	if accountExists == false {
+	if !accountExists {
 		return nil, false, nil
 	}
 
@@ -1299,7 +1231,7 @@ func (armClient *ArmClient) getQueueServiceClientForStorageAccount(ctx context.C
 	if err != nil {
 		return nil, accountExists, err
 	}
-	if accountExists == false {
+	if !accountExists {
 		return nil, false, nil
 	}
 

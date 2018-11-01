@@ -216,6 +216,7 @@ func resourceArmVirtualNetworkGateway() *schema.Resource {
 								Type: schema.TypeString,
 								ValidateFunc: validation.StringInSlice([]string{
 									string(network.IkeV2),
+									string(network.OpenVPN),
 									string(network.SSTP),
 								}, true),
 							},
@@ -732,7 +733,7 @@ func validateArmVirtualNetworkGatewaySubnetId(i interface{}, k string) (s []stri
 		es = append(es, fmt.Errorf("expected %s to reference a gateway subnet with name GatewaySubnet", k))
 	}
 
-	return
+	return s, es
 }
 
 func validateArmVirtualNetworkGatewayPolicyBasedVpnSku() schema.SchemaValidateFunc {
