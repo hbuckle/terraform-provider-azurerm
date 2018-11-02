@@ -271,7 +271,7 @@ func expandArmFirewallIPConfigurations(d *schema.ResourceData) (*[]network.Azure
 				Subnet: &network.SubResource{
 					ID: utils.String(subnetId),
 				},
-				InternalPublicIPAddress: &network.SubResource{
+				PublicIPAddress: &network.SubResource{
 					ID: utils.String(intPubID),
 				},
 			},
