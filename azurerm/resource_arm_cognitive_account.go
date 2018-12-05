@@ -131,8 +131,7 @@ func resourceArmCognitiveAccountCreate(d *schema.ResourceData, meta interface{})
 		Tags:       expandTags(tags),
 	}
 
-	_, err := client.Create(ctx, resourceGroup, name, properties)
-	if err != nil {
+	if _, err := client.Create(ctx, resourceGroup, name, properties); err != nil {
 		return fmt.Errorf("Error creating Cognitive Services Account %q (Resource Group %q): %+v", name, resourceGroup, err)
 	}
 
@@ -205,7 +204,7 @@ func resourceArmCognitiveAccountRead(d *schema.ResourceData, meta interface{}) e
 	}
 
 	if err := d.Set("sku", flattenCognitiveAccountSku(resp.Sku)); err != nil {
-		return fmt.Errorf("Error flattening `sku`: %+v", err)
+		return fmt.Errorf("Error setting `sku`: %+v", err)
 	}
 
 	if props := resp.AccountProperties; props != nil {

@@ -246,8 +246,7 @@ func resourceArmCdnEndpointCreate(d *schema.ResourceData, meta interface{}) erro
 		return fmt.Errorf("Error creating CDN Endpoint %q (Profile %q / Resource Group %q): %+v", name, profileName, resourceGroup, err)
 	}
 
-	err = future.WaitForCompletionRef(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return fmt.Errorf("Error waiting for CDN Endpoint %q (Profile %q / Resource Group %q) to finish creating: %+v", name, profileName, resourceGroup, err)
 	}
 
@@ -312,8 +311,7 @@ func resourceArmCdnEndpointUpdate(d *schema.ResourceData, meta interface{}) erro
 		return fmt.Errorf("Error updating CDN Endpoint %q (Profile %q / Resource Group %q): %s", name, profileName, resourceGroup, err)
 	}
 
-	err = future.WaitForCompletionRef(ctx, endpointsClient.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, endpointsClient.Client); err != nil {
 		return fmt.Errorf("Error waiting for the CDN Endpoint %q (Profile %q / Resource Group %q) to finish updating: %+v", name, profileName, resourceGroup, err)
 	}
 
@@ -366,17 +364,17 @@ func resourceArmCdnEndpointRead(d *schema.ResourceData, meta interface{}) error 
 
 		contentTypes := flattenAzureRMCdnEndpointContentTypes(props.ContentTypesToCompress)
 		if err := d.Set("content_types_to_compress", contentTypes); err != nil {
-			return fmt.Errorf("Error flattening `content_types_to_compress`: %+v", err)
+			return fmt.Errorf("Error setting `content_types_to_compress`: %+v", err)
 		}
 
 		geoFilters := flattenCdnEndpointGeoFilters(props.GeoFilters)
 		if err := d.Set("geo_filter", geoFilters); err != nil {
-			return fmt.Errorf("Error flattening `geo_filter`: %+v", err)
+			return fmt.Errorf("Error setting `geo_filter`: %+v", err)
 		}
 
 		origins := flattenAzureRMCdnEndpointOrigin(props.Origins)
 		if err := d.Set("origin", origins); err != nil {
-			return fmt.Errorf("Error flattening `origin`: %+v", err)
+			return fmt.Errorf("Error setting `origin`: %+v", err)
 		}
 	}
 
@@ -408,8 +406,7 @@ func resourceArmCdnEndpointDelete(d *schema.ResourceData, meta interface{}) erro
 		return fmt.Errorf("Error deleting CDN Endpoint %q (Profile %q / Resource Group %q): %+v", name, profileName, resourceGroup, err)
 	}
 
-	err = future.WaitForCompletionRef(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		if response.WasNotFound(future.Response()) {
 			return nil
 		}

@@ -107,8 +107,7 @@ func resourceArmFirewallCreateUpdate(d *schema.ResourceData, meta interface{}) e
 		return fmt.Errorf("Error creating/updating Azure Firewall %q (Resource Group %q): %+v", name, resourceGroup, err)
 	}
 
-	err = future.WaitForCompletionRef(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return fmt.Errorf("Error waiting for creation/update of Azure Firewall %q (Resource Group %q): %+v", name, resourceGroup, err)
 	}
 
@@ -197,9 +196,9 @@ func resourceArmFirewallDelete(d *schema.ResourceData, meta interface{}) error {
 					continue
 				}
 
-				parsedSubnetId, err := parseAzureResourceID(*config.Subnet.ID)
-				if err != nil {
-					return err
+				parsedSubnetId, err2 := parseAzureResourceID(*config.Subnet.ID)
+				if err2 != nil {
+					return err2
 				}
 				subnetName := parsedSubnetId.Path["subnets"]
 
@@ -229,8 +228,7 @@ func resourceArmFirewallDelete(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf("Error deleting Azure Firewall %q (Resource Group %q): %+v", name, resourceGroup, err)
 	}
 
-	err = future.WaitForCompletionRef(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return fmt.Errorf("Error waiting for the deletion of Azure Firewall %q (Resource Group %q): %+v", name, resourceGroup, err)
 	}
 
@@ -319,14 +317,14 @@ func flattenArmFirewallIPConfigurations(input *[]network.AzureFirewallIPConfigur
 	return result
 }
 
-func validateAzureFirewallName(v interface{}, k string) (ws []string, es []error) {
+func validateAzureFirewallName(v interface{}, k string) (warnings []string, errors []error) {
 	value := v.(string)
 
 	// From the Portal:
 	// The name must begin with a letter or number, end with a letter, number or underscore, and may contain only letters, numbers, underscores, periods, or hyphens.
 	if matched := regexp.MustCompile(`^[0-9a-zA-Z]([0-9a-zA-Z.\_-]{0,}[0-9a-zA-Z_])?$`).Match([]byte(value)); !matched {
-		es = append(es, fmt.Errorf("%q must begin with a letter or number, end with a letter, number or underscore, and may contain only letters, numbers, underscores, periods, or hyphens.", k))
+		errors = append(errors, fmt.Errorf("%q must begin with a letter or number, end with a letter, number or underscore, and may contain only letters, numbers, underscores, periods, or hyphens.", k))
 	}
 
-	return ws, es
+	return warnings, errors
 }

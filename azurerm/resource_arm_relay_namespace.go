@@ -114,8 +114,7 @@ func resourceArmRelayNamespaceCreateUpdate(d *schema.ResourceData, meta interfac
 		return err
 	}
 
-	err = future.WaitForCompletionRef(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return err
 	}
 
@@ -161,7 +160,7 @@ func resourceArmRelayNamespaceRead(d *schema.ResourceData, meta interface{}) err
 
 	if sku := resp.Sku; sku != nil {
 		flattenedSku := flattenRelayNamespaceSku(sku)
-		if err := d.Set("sku", flattenedSku); err != nil {
+		if err = d.Set("sku", flattenedSku); err != nil {
 			return fmt.Errorf("Error setting `sku`: %+v", err)
 		}
 	}

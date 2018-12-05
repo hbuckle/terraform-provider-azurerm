@@ -66,6 +66,12 @@ func resourceArmFunctionApp() *schema.Resource {
 				Optional: true,
 			},
 
+			"enable_builtin_logging": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  true,
+			},
+
 			"connection_string": {
 				Type:     schema.TypeList,
 				Optional: true,
@@ -336,8 +342,7 @@ func resourceArmFunctionAppUpdate(d *schema.ResourceData, meta interface{}) erro
 		return err
 	}
 
-	err = future.WaitForCompletionRef(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return err
 	}
 
@@ -356,8 +361,7 @@ func resourceArmFunctionAppUpdate(d *schema.ResourceData, meta interface{}) erro
 		siteConfigResource := web.SiteConfigResource{
 			SiteConfig: &siteConfig,
 		}
-		_, err := client.CreateOrUpdateConfiguration(ctx, resGroup, name, siteConfigResource)
-		if err != nil {
+		if _, err := client.CreateOrUpdateConfiguration(ctx, resGroup, name, siteConfigResource); err != nil {
 			return fmt.Errorf("Error updating Configuration for Function App %q: %+v", name, err)
 		}
 	}
@@ -369,8 +373,7 @@ func resourceArmFunctionAppUpdate(d *schema.ResourceData, meta interface{}) erro
 			Properties: connectionStrings,
 		}
 
-		_, err := client.UpdateConnectionStrings(ctx, resGroup, name, properties)
-		if err != nil {
+		if _, err := client.UpdateConnectionStrings(ctx, resGroup, name, properties); err != nil {
 			return fmt.Errorf("Error updating Connection Strings for App Service %q: %+v", name, err)
 		}
 	}
@@ -443,7 +446,7 @@ func resourceArmFunctionAppRead(d *schema.ResourceData, meta interface{}) error 
 		d.Set("client_affinity_enabled", props.ClientAffinityEnabled)
 	}
 
-	if err := d.Set("identity", flattenFunctionAppIdentity(resp.Identity)); err != nil {
+	if err = d.Set("identity", flattenFunctionAppIdentity(resp.Identity)); err != nil {
 		return err
 	}
 
@@ -452,16 +455,19 @@ func resourceArmFunctionAppRead(d *schema.ResourceData, meta interface{}) error 
 	d.Set("storage_connection_string", appSettings["AzureWebJobsStorage"])
 	d.Set("version", appSettings["FUNCTIONS_EXTENSION_VERSION"])
 
+	dashboard, ok := appSettings["AzureWebJobsDashboard"]
+	d.Set("enable_builtin_logging", ok && dashboard != "")
+
 	delete(appSettings, "AzureWebJobsDashboard")
 	delete(appSettings, "AzureWebJobsStorage")
 	delete(appSettings, "FUNCTIONS_EXTENSION_VERSION")
 	delete(appSettings, "WEBSITE_CONTENTSHARE")
 	delete(appSettings, "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING")
 
-	if err := d.Set("app_settings", appSettings); err != nil {
+	if err = d.Set("app_settings", appSettings); err != nil {
 		return err
 	}
-	if err := d.Set("connection_string", flattenFunctionAppConnectionStrings(connectionStringsResp.Properties)); err != nil {
+	if err = d.Set("connection_string", flattenFunctionAppConnectionStrings(connectionStringsResp.Properties)); err != nil {
 		return err
 	}
 
@@ -471,12 +477,12 @@ func resourceArmFunctionAppRead(d *schema.ResourceData, meta interface{}) error 
 	}
 
 	siteConfig := flattenFunctionAppSiteConfig(configResp.SiteConfig)
-	if err := d.Set("site_config", siteConfig); err != nil {
+	if err = d.Set("site_config", siteConfig); err != nil {
 		return err
 	}
 
 	siteCred := flattenFunctionAppSiteCredential(siteCredResp.UserProperties)
-	if err := d.Set("site_credential", siteCred); err != nil {
+	if err = d.Set("site_credential", siteCred); err != nil {
 		return err
 	}
 
@@ -524,9 +530,15 @@ func getBasicFunctionAppAppSettings(d *schema.ResourceData, appServiceTier strin
 	contentShare := strings.ToLower(d.Get("name").(string)) + "-content"
 
 	basicSettings := []web.NameValuePair{
-		{Name: &dashboardPropName, Value: &storageConnection},
 		{Name: &storagePropName, Value: &storageConnection},
 		{Name: &functionVersionPropName, Value: &functionVersion},
+	}
+
+	if d.Get("enable_builtin_logging").(bool) {
+		basicSettings = append(basicSettings, web.NameValuePair{
+			Name:  &dashboardPropName,
+			Value: &storageConnection,
+		})
 	}
 
 	consumptionSettings := []web.NameValuePair{

@@ -130,7 +130,7 @@ func resourceArmSubnetCreate(d *schema.ResourceData, meta interface{}) error {
 	properties.ServiceEndpoints = &serviceEndpoints
 
 	subnet := network.Subnet{
-		Name: &name,
+		Name:                   &name,
 		SubnetPropertiesFormat: &properties,
 	}
 
@@ -139,8 +139,7 @@ func resourceArmSubnetCreate(d *schema.ResourceData, meta interface{}) error {
 		return fmt.Errorf("Error Creating/Updating Subnet %q (VN %q / Resource Group %q): %+v", name, vnetName, resGroup, err)
 	}
 
-	err = future.WaitForCompletionRef(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return fmt.Errorf("Error waiting for completion of Subnet %q (VN %q / Resource Group %q): %+v", name, vnetName, resGroup, err)
 	}
 
@@ -224,9 +223,9 @@ func resourceArmSubnetDelete(d *schema.ResourceData, meta interface{}) error {
 
 	if v, ok := d.GetOk("network_security_group_id"); ok {
 		networkSecurityGroupId := v.(string)
-		networkSecurityGroupName, err := parseNetworkSecurityGroupName(networkSecurityGroupId)
-		if err != nil {
-			return err
+		networkSecurityGroupName, err2 := parseNetworkSecurityGroupName(networkSecurityGroupId)
+		if err2 != nil {
+			return err2
 		}
 
 		azureRMLockByName(networkSecurityGroupName, networkSecurityGroupResourceName)
@@ -235,9 +234,9 @@ func resourceArmSubnetDelete(d *schema.ResourceData, meta interface{}) error {
 
 	if v, ok := d.GetOk("route_table_id"); ok {
 		rtId := v.(string)
-		routeTableName, err := parseRouteTableName(rtId)
-		if err != nil {
-			return err
+		routeTableName, err2 := parseRouteTableName(rtId)
+		if err2 != nil {
+			return err2
 		}
 
 		azureRMLockByName(routeTableName, routeTableResourceName)

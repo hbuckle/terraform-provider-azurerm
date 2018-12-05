@@ -88,8 +88,7 @@ func resourceArmLogAnalyticsWorkspaceLinkedServiceCreateUpdate(d *schema.Resourc
 		},
 	}
 
-	_, err := client.CreateOrUpdate(ctx, resGroup, workspaceName, lsName, parameters)
-	if err != nil {
+	if _, err := client.CreateOrUpdate(ctx, resGroup, workspaceName, lsName, parameters); err != nil {
 		return fmt.Errorf("Error issuing create request for Log Analytics Workspace Linked Service %q/%q (Resource Group %q): %+v", workspaceName, lsName, resGroup, err)
 	}
 
@@ -139,7 +138,7 @@ func resourceArmLogAnalyticsWorkspaceLinkedServiceRead(d *schema.ResourceData, m
 
 	linkedServiceProperties := flattenLogAnalyticsWorkspaceLinkedServiceProperties(resp.LinkedServiceProperties)
 	if err := d.Set("linked_service_properties", linkedServiceProperties); err != nil {
-		return fmt.Errorf("Error flattening Log Analytics Linked Service Properties: %+v", err)
+		return fmt.Errorf("Error setting Log Analytics Linked Service Properties: %+v", err)
 	}
 
 	flattenAndSetTags(d, resp.Tags)

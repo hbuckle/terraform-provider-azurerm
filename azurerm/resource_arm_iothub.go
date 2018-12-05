@@ -15,14 +15,16 @@ import (
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/helper/validation"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/response"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/suppress"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/validate"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
 func resourceArmIotHub() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceArmIotHubCreateAndUpdate,
+		Create: resourceArmIotHubCreateUpdate,
 		Read:   resourceArmIotHubRead,
-		Update: resourceArmIotHubCreateAndUpdate,
+		Update: resourceArmIotHubCreateUpdate,
 		Delete: resourceArmIotHubDelete,
 		Importer: &schema.ResourceImporter{
 			State: schema.ImportStatePassthrough,
@@ -30,9 +32,10 @@ func resourceArmIotHub() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			"name": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: validate.IoTHubName,
 			},
 
 			"location": locationSchema(),
@@ -48,7 +51,7 @@ func resourceArmIotHub() *schema.Resource {
 						"name": {
 							Type:             schema.TypeString,
 							Required:         true,
-							DiffSuppressFunc: ignoreCaseDiffSuppressFunc,
+							DiffSuppressFunc: suppress.CaseDifference,
 							ValidateFunc: validation.StringInSlice([]string{
 								string(devices.B1),
 								string(devices.B2),
@@ -63,7 +66,7 @@ func resourceArmIotHub() *schema.Resource {
 						"tier": {
 							Type:             schema.TypeString,
 							Required:         true,
-							DiffSuppressFunc: ignoreCaseDiffSuppressFunc,
+							DiffSuppressFunc: suppress.CaseDifference,
 							ValidateFunc: validation.StringInSlice([]string{
 								string(devices.Basic),
 								string(devices.Free),
@@ -186,7 +189,7 @@ func resourceArmIotHub() *schema.Resource {
 						"encoding": {
 							Type:             schema.TypeString,
 							Optional:         true,
-							DiffSuppressFunc: ignoreCaseDiffSuppressFunc,
+							DiffSuppressFunc: suppress.CaseDifference,
 							ValidateFunc: validation.StringInSlice([]string{
 								string(eventhub.Avro),
 								string(eventhub.AvroDeflate),
@@ -250,7 +253,7 @@ func resourceArmIotHub() *schema.Resource {
 
 }
 
-func resourceArmIotHubCreateAndUpdate(d *schema.ResourceData, meta interface{}) error {
+func resourceArmIotHubCreateUpdate(d *schema.ResourceData, meta interface{}) error {
 	client := meta.(*ArmClient).iothubResourceClient
 	ctx := meta.(*ArmClient).StopContext
 	subscriptionID := meta.(*ArmClient).subscriptionId
@@ -266,7 +269,7 @@ func resourceArmIotHubCreateAndUpdate(d *schema.ResourceData, meta interface{}) 
 	}
 
 	if !*res.NameAvailable {
-		_, err := client.Get(ctx, resourceGroup, name)
+		_, err = client.Get(ctx, resourceGroup, name)
 		if err != nil {
 			return fmt.Errorf("An IoTHub already exists with the name %q - please choose an alternate name: %s", name, string(res.Reason))
 		}
@@ -283,21 +286,17 @@ func resourceArmIotHubCreateAndUpdate(d *schema.ResourceData, meta interface{}) 
 
 	routes := expandIoTHubRoutes(d)
 
-	routingProperties := devices.RoutingProperties{
-		Endpoints: endpoints,
-		Routes:    routes,
-	}
-
-	iotHubProperties := devices.IotHubProperties{
-		Routing: &routingProperties,
-	}
-
 	properties := devices.IotHubDescription{
-		Name:       utils.String(name),
-		Location:   utils.String(location),
-		Sku:        &skuInfo,
-		Tags:       expandTags(tags),
-		Properties: &iotHubProperties,
+		Name:     utils.String(name),
+		Location: utils.String(location),
+		Sku:      skuInfo,
+		Properties: &devices.IotHubProperties{
+			Routing: &devices.RoutingProperties{
+				Endpoints: endpoints,
+				Routes:    routes,
+			},
+		},
+		Tags: expandTags(tags),
 	}
 
 	future, err := client.CreateOrUpdate(ctx, resourceGroup, name, properties, "")
@@ -305,8 +304,7 @@ func resourceArmIotHubCreateAndUpdate(d *schema.ResourceData, meta interface{}) 
 		return fmt.Errorf("Error creating/updating IotHub %q (Resource Group %q): %+v", name, resourceGroup, err)
 	}
 
-	err = future.WaitForCompletionRef(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return fmt.Errorf("Error waiting for the completion of the creating/updating of IotHub %q (Resource Group %q): %+v", name, resourceGroup, err)
 	}
 
@@ -350,7 +348,7 @@ func resourceArmIotHubRead(d *schema.ResourceData, meta interface{}) error {
 	keys := flattenIoTHubSharedAccessPolicy(keyList.Value)
 
 	if err := d.Set("shared_access_policy", keys); err != nil {
-		return fmt.Errorf("Error flattening `shared_access_policy` in IoTHub %q: %+v", name, err)
+		return fmt.Errorf("Error setting `shared_access_policy` in IoTHub %q: %+v", name, err)
 	}
 
 	if properties := hub.Properties; properties != nil {
@@ -359,20 +357,13 @@ func resourceArmIotHubRead(d *schema.ResourceData, meta interface{}) error {
 			if v == nil {
 				continue
 			}
+
 			if k == "events" {
-				if v.Endpoint != nil {
-					d.Set("event_hub_events_endpoint", *v.Endpoint)
-				}
-				if v.Path != nil {
-					d.Set("event_hub_events_path", *v.Path)
-				}
+				d.Set("event_hub_events_endpoint", v.Endpoint)
+				d.Set("event_hub_events_path", v.Path)
 			} else if k == "operationsMonitoringEvents" {
-				if v.Endpoint != nil {
-					d.Set("event_hub_operations_endpoint", *v.Endpoint)
-				}
-				if v.Path != nil {
-					d.Set("event_hub_operations_path", *v.Path)
-				}
+				d.Set("event_hub_operations_endpoint", v.Endpoint)
+				d.Set("event_hub_operations_path", v.Path)
 			}
 
 		}
@@ -381,12 +372,12 @@ func resourceArmIotHubRead(d *schema.ResourceData, meta interface{}) error {
 
 		endpoints := flattenIoTHubEndpoint(properties.Routing)
 		if err := d.Set("endpoint", endpoints); err != nil {
-			return fmt.Errorf("Error flattening `endpoint` in IoTHub %q: %+v", name, err)
+			return fmt.Errorf("Error setting `endpoint` in IoTHub %q: %+v", name, err)
 		}
 
 		routes := flattenIoTHubRoute(properties.Routing)
 		if err := d.Set("route", routes); err != nil {
-			return fmt.Errorf("Error flattening `route` in IoTHub %q: %+v", name, err)
+			return fmt.Errorf("Error setting `route` in IoTHub %q: %+v", name, err)
 		}
 	}
 
@@ -397,7 +388,7 @@ func resourceArmIotHubRead(d *schema.ResourceData, meta interface{}) error {
 	}
 	sku := flattenIoTHubSku(hub.Sku)
 	if err := d.Set("sku", sku); err != nil {
-		return fmt.Errorf("Error flattening `sku`: %+v", err)
+		return fmt.Errorf("Error setting `sku`: %+v", err)
 	}
 	d.Set("type", hub.Type)
 	flattenAndSetTags(d, hub.Tags)
@@ -568,7 +559,7 @@ func expandIoTHubEndpoints(d *schema.ResourceData, subscriptionId string) (*devi
 	}, nil
 }
 
-func expandIoTHubSku(d *schema.ResourceData) devices.IotHubSkuInfo {
+func expandIoTHubSku(d *schema.ResourceData) *devices.IotHubSkuInfo {
 	skuList := d.Get("sku").([]interface{})
 	skuMap := skuList[0].(map[string]interface{})
 	capacity := int64(skuMap["capacity"].(int))
@@ -576,7 +567,7 @@ func expandIoTHubSku(d *schema.ResourceData) devices.IotHubSkuInfo {
 	name := skuMap["name"].(string)
 	tier := skuMap["tier"].(string)
 
-	return devices.IotHubSkuInfo{
+	return &devices.IotHubSkuInfo{
 		Name:     devices.IotHubSku(name),
 		Tier:     devices.IotHubSkuTier(tier),
 		Capacity: utils.Int64(capacity),
@@ -735,7 +726,7 @@ func flattenIoTHubRoute(input *devices.RoutingProperties) []interface{} {
 	return results
 }
 
-func validateIoTHubEndpointName(v interface{}, k string) (ws []string, errors []error) {
+func validateIoTHubEndpointName(v interface{}, _ string) (warnings []string, errors []error) {
 	value := v.(string)
 
 	reservedNames := []string{
@@ -751,10 +742,10 @@ func validateIoTHubEndpointName(v interface{}, k string) (ws []string, errors []
 		}
 	}
 
-	return ws, errors
+	return warnings, errors
 }
 
-func validateIoTHubFileNameFormat(v interface{}, k string) (ws []string, errors []error) {
+func validateIoTHubFileNameFormat(v interface{}, k string) (warnings []string, errors []error) {
 	value := v.(string)
 
 	requiredComponents := []string{
@@ -773,5 +764,5 @@ func validateIoTHubFileNameFormat(v interface{}, k string) (ws []string, errors 
 		}
 	}
 
-	return ws, errors
+	return warnings, errors
 }

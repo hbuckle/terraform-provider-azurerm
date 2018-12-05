@@ -15,7 +15,7 @@ func TestAccAzureRMKeyVaultCertificate_basicImportPFX(t *testing.T) {
 	rs := acctest.RandString(6)
 	config := testAccAzureRMKeyVaultCertificate_basicImportPFX(rs, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMKeyVaultCertificateDestroy,
@@ -27,6 +27,12 @@ func TestAccAzureRMKeyVaultCertificate_basicImportPFX(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "certificate_data"),
 				),
 			},
+			{
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"certificate"},
+			},
 		},
 	})
 }
@@ -36,7 +42,7 @@ func TestAccAzureRMKeyVaultCertificate_disappears(t *testing.T) {
 	rs := acctest.RandString(6)
 	config := testAccAzureRMKeyVaultCertificate_basicGenerate(rs, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMKeyVaultCertificateDestroy,
@@ -57,7 +63,7 @@ func TestAccAzureRMKeyVaultCertificate_disappearsWhenParentKeyVaultDeleted(t *te
 	rs := acctest.RandString(6)
 	config := testAccAzureRMKeyVaultCertificate_basicGenerate(rs, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMKeyVaultCertificateDestroy,
@@ -79,7 +85,7 @@ func TestAccAzureRMKeyVaultCertificate_basicGenerate(t *testing.T) {
 	rs := acctest.RandString(6)
 	config := testAccAzureRMKeyVaultCertificate_basicGenerate(rs, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMKeyVaultCertificateDestroy,
@@ -92,6 +98,11 @@ func TestAccAzureRMKeyVaultCertificate_basicGenerate(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "certificate_data"),
 				),
 			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 		},
 	})
 }
@@ -101,7 +112,7 @@ func TestAccAzureRMKeyVaultCertificate_basicGenerateSans(t *testing.T) {
 	rs := acctest.RandString(6)
 	config := testAccAzureRMKeyVaultCertificate_basicGenerateSans(rs, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMKeyVaultCertificateDestroy,
@@ -125,7 +136,7 @@ func TestAccAzureRMKeyVaultCertificate_basicGenerateTags(t *testing.T) {
 	rs := acctest.RandString(6)
 	config := testAccAzureRMKeyVaultCertificate_basicGenerateTags(rs, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMKeyVaultCertificateDestroy,
@@ -139,6 +150,11 @@ func TestAccAzureRMKeyVaultCertificate_basicGenerateTags(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "tags.hello", "world"),
 				),
 			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 		},
 	})
 }
@@ -148,7 +164,7 @@ func TestAccAzureRMKeyVaultCertificate_basicExtendedKeyUsage(t *testing.T) {
 	rs := acctest.RandString(6)
 	config := testAccAzureRMKeyVaultCertificate_basicExtendedKeyUsage(rs, testLocation())
 
-	resource.Test(t, resource.TestCase{
+	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMKeyVaultCertificateDestroy,
@@ -342,7 +358,7 @@ resource "azurerm_key_vault" "test" {
       "create",
       "delete",
       "get",
-      "update"
+      "update",
     ]
 
     key_permissions = [
@@ -400,7 +416,6 @@ resource "azurerm_key_vault_certificate" "test" {
     }
   }
 }
-
 `, rString, location, rString, rString)
 }
 
@@ -431,7 +446,7 @@ resource "azurerm_key_vault" "test" {
       "create",
       "delete",
       "get",
-      "update"
+      "update",
     ]
 
     key_permissions = [
@@ -484,17 +499,18 @@ resource "azurerm_key_vault_certificate" "test" {
         "keyEncipherment",
       ]
 
-      subject            = "CN=hello-world"
+      subject = "CN=hello-world"
+
       subject_alternative_names {
-        emails = ["mary@stu.co.uk"]
+        emails    = ["mary@stu.co.uk"]
         dns_names = ["internal.contoso.com"]
         upns      = ["john@doe.com"]
       }
+
       validity_in_months = 12
     }
   }
 }
-
 `, rString, location, rString, rString)
 }
 
@@ -525,7 +541,7 @@ resource "azurerm_key_vault" "test" {
       "create",
       "delete",
       "get",
-      "update"
+      "update",
     ]
 
     key_permissions = [
@@ -587,7 +603,6 @@ resource "azurerm_key_vault_certificate" "test" {
     "hello" = "world"
   }
 }
-
 `, rString, location, rString, rString)
 }
 
@@ -618,7 +633,7 @@ resource "azurerm_key_vault" "test" {
       "create",
       "delete",
       "get",
-      "update"
+      "update",
     ]
 
     key_permissions = [
@@ -663,9 +678,9 @@ resource "azurerm_key_vault_certificate" "test" {
 
     x509_certificate_properties {
       extended_key_usage = [
-        "1.3.6.1.5.5.7.3.1",      # Server Authentication
-        "1.3.6.1.5.5.7.3.2",      # Client Authentication
-        "1.3.6.1.4.1.311.21.10",  # Application Policies
+        "1.3.6.1.5.5.7.3.1",     # Server Authentication
+        "1.3.6.1.5.5.7.3.2",     # Client Authentication
+        "1.3.6.1.4.1.311.21.10", # Application Policies
       ]
 
       key_usage = [
@@ -682,6 +697,5 @@ resource "azurerm_key_vault_certificate" "test" {
     }
   }
 }
-
 `, rString, location, rString, rString)
 }

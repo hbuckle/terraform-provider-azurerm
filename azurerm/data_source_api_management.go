@@ -25,6 +25,14 @@ func dataSourceApiManagementService() *schema.Resource {
 
 			"location": locationForDataSourceSchema(),
 
+			"public_ip_addresses": {
+				Type:     schema.TypeList,
+				Computed: true,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+			},
+
 			"publisher_name": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -195,7 +203,7 @@ func dataSourceApiManagementRead(d *schema.ResourceData, meta interface{}) error
 	}
 
 	if err := d.Set("sku", flattenDataSourceApiManagementServiceSku(resp.Sku)); err != nil {
-		return fmt.Errorf("Error flattening `sku`: %+v", err)
+		return fmt.Errorf("Error setting `sku`: %+v", err)
 	}
 
 	flattenAndSetTags(d, resp.Tags)

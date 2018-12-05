@@ -254,8 +254,7 @@ func resourceArmRedisCacheCreate(d *schema.ResourceData, meta interface{}) error
 		return err
 	}
 
-	err = future.WaitForCompletionRef(ctx, client.Client)
-	if err != nil {
+	if err = future.WaitForCompletionRef(ctx, client.Client); err != nil {
 		return err
 	}
 
@@ -275,7 +274,7 @@ func resourceArmRedisCacheCreate(d *schema.ResourceData, meta interface{}) error
 		Timeout:    60 * time.Minute,
 		MinTimeout: 15 * time.Second,
 	}
-	if _, err := stateConf.WaitForState(); err != nil {
+	if _, err = stateConf.WaitForState(); err != nil {
 		return fmt.Errorf("Error waiting for Redis Instance (%s) to become available: %s", d.Get("name"), err)
 	}
 
@@ -333,8 +332,7 @@ func resourceArmRedisCacheUpdate(d *schema.ResourceData, meta interface{}) error
 		parameters.RedisConfiguration = redisConfiguration
 	}
 
-	_, err := client.Update(ctx, resGroup, name, parameters)
-	if err != nil {
+	if _, err := client.Update(ctx, resGroup, name, parameters); err != nil {
 		return err
 	}
 
@@ -354,7 +352,7 @@ func resourceArmRedisCacheUpdate(d *schema.ResourceData, meta interface{}) error
 		Timeout:    60 * time.Minute,
 		MinTimeout: 15 * time.Second,
 	}
-	if _, err := stateConf.WaitForState(); err != nil {
+	if _, err = stateConf.WaitForState(); err != nil {
 		return fmt.Errorf("Error waiting for Redis Instance (%s) to become available: %s", d.Get("name"), err)
 	}
 
@@ -414,7 +412,7 @@ func resourceArmRedisCacheRead(d *schema.ResourceData, meta interface{}) error {
 	schedule, err := patchSchedulesClient.Get(ctx, resGroup, name)
 	if err == nil {
 		patchSchedule := flattenRedisPatchSchedules(schedule)
-		if err := d.Set("patch_schedule", patchSchedule); err != nil {
+		if err = d.Set("patch_schedule", patchSchedule); err != nil {
 			return fmt.Errorf("Error setting `patch_schedule`: %+v", err)
 		}
 	}
@@ -478,8 +476,8 @@ func resourceArmRedisCacheDelete(d *schema.ResourceData, meta interface{}) error
 
 		return err
 	}
-	err = future.WaitForCompletionRef(ctx, redisClient.Client)
-	if err != nil {
+
+	if err = future.WaitForCompletionRef(ctx, redisClient.Client); err != nil {
 		if response.WasNotFound(future.Response()) {
 			return nil
 		}
@@ -653,7 +651,7 @@ func flattenRedisPatchSchedules(schedule redis.PatchSchedule) []interface{} {
 	return outputs
 }
 
-func validateRedisFamily(v interface{}, k string) (ws []string, errors []error) {
+func validateRedisFamily(v interface{}, _ string) (warnings []string, errors []error) {
 	value := strings.ToLower(v.(string))
 	families := map[string]bool{
 		"c": true,
@@ -663,10 +661,10 @@ func validateRedisFamily(v interface{}, k string) (ws []string, errors []error) 
 	if !families[value] {
 		errors = append(errors, fmt.Errorf("Redis Family can only be C or P"))
 	}
-	return ws, errors
+	return warnings, errors
 }
 
-func validateRedisMaxMemoryPolicy(v interface{}, k string) (ws []string, errors []error) {
+func validateRedisMaxMemoryPolicy(v interface{}, _ string) (warnings []string, errors []error) {
 	value := strings.ToLower(v.(string))
 	families := map[string]bool{
 		"noeviction":      true,
@@ -681,10 +679,10 @@ func validateRedisMaxMemoryPolicy(v interface{}, k string) (ws []string, errors 
 		errors = append(errors, fmt.Errorf("Redis Max Memory Policy can only be 'noeviction' / 'allkeys-lru' / 'volatile-lru' / 'allkeys-random' / 'volatile-random' / 'volatile-ttl'"))
 	}
 
-	return ws, errors
+	return warnings, errors
 }
 
-func validateRedisBackupFrequency(v interface{}, k string) (ws []string, errors []error) {
+func validateRedisBackupFrequency(v interface{}, _ string) (warnings []string, errors []error) {
 	value := v.(int)
 	families := map[int]bool{
 		15:   true,
@@ -699,5 +697,5 @@ func validateRedisBackupFrequency(v interface{}, k string) (ws []string, errors 
 		errors = append(errors, fmt.Errorf("Redis Backup Frequency can only be '15', '30', '60', '360', '720' or '1440'"))
 	}
 
-	return ws, errors
+	return warnings, errors
 }

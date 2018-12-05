@@ -172,8 +172,7 @@ func resourceArmMetricAlertRuleCreateOrUpdate(d *schema.ResourceData, meta inter
 		AlertRule: alertRule,
 	}
 
-	_, err = client.CreateOrUpdate(ctx, resourceGroup, name, alertRuleResource)
-	if err != nil {
+	if _, err = client.CreateOrUpdate(ctx, resourceGroup, name, alertRuleResource); err != nil {
 		return err
 	}
 
@@ -251,7 +250,7 @@ func resourceArmMetricAlertRuleRead(d *schema.ResourceData, meta interface{}) er
 					email_action["send_to_service_owners"] = *sendToOwners
 				}
 
-				custom_emails := []string{}
+				custom_emails := make([]string, 0)
 				if s := emailAction.CustomEmails; s != nil {
 					custom_emails = *s
 				}
@@ -420,17 +419,17 @@ func resourceGroupAndAlertRuleNameFromId(alertRuleId string) (string, string, er
 	return resourceGroup, name, nil
 }
 
-func validateMetricAlertRuleTags(v interface{}, f string) (ws []string, es []error) {
+func validateMetricAlertRuleTags(v interface{}, f string) (warnings []string, errors []error) {
 	// Normal validation required by any AzureRM resource.
-	ws, es = validateAzureRMTags(v, f)
+	warnings, errors = validateAzureRMTags(v, f)
 
 	tagsMap := v.(map[string]interface{})
 
 	for k := range tagsMap {
 		if strings.EqualFold(k, "$type") {
-			es = append(es, fmt.Errorf("the %q is not allowed as tag name", k))
+			errors = append(errors, fmt.Errorf("the %q is not allowed as tag name", k))
 		}
 	}
 
-	return ws, es
+	return warnings, errors
 }
