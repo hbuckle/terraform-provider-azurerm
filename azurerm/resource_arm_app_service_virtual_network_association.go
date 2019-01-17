@@ -5,6 +5,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/web/mgmt/2018-02-01/web"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/azure"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
@@ -19,20 +20,21 @@ func resourceArmAppServiceVirtualNetworkAssociation() *schema.Resource {
 		},
 
 		Schema: map[string]*schema.Schema{
+			"resource_group_name": resourceGroupNameSchema(),
+
+			"location": locationSchema(),
+
 			"app_service_id": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     true,
+				ValidateFunc: azure.ValidateResourceID,
 			},
 			"subnet_id": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: false,
-			},
-			"location": {
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:         schema.TypeString,
+				Required:     true,
+				ForceNew:     false,
+				ValidateFunc: azure.ValidateResourceID,
 			},
 		},
 	}
@@ -50,7 +52,7 @@ func resourceArmAppServiceVirtualNetworkAssociationCreateUpdate(d *schema.Resour
 	if err != nil {
 		return fmt.Errorf("Error parsing Azure Resource ID %q", id)
 	}
-	resourceGroup := id.ResourceGroup
+	resourceGroup := d.Get("resource_group_name").(string)
 	name := id.Path["sites"]
 	location := d.Get("location").(string)
 	subnetName := subnetID.Path["subnets"]
@@ -107,15 +109,20 @@ func resourceArmAppServiceVirtualNetworkAssociationRead(d *schema.ResourceData, 
 	if err != nil {
 		return err
 	}
-	d.Set("app_service_id", appService.ID)
+
 	if resp.SwiftVirtualNetworkProperties == nil {
 		return fmt.Errorf("Error retrieving virtual network properties (App Service %q / Resource Group %q): `properties` was nil", name, resourceGroup)
 	}
 	props := *resp.SwiftVirtualNetworkProperties
-	if subnetID := props.SubnetResourceID; subnetID != nil {
-		d.Set("subnet_id", subnetID)
+	subnetID := props.SubnetResourceID
+	if subnetID == nil || *subnetID == "" {
+		d.SetId("")
+		return nil
 	}
+	d.Set("subnet_id", subnetID)
+	d.Set("app_service_id", appService.ID)
 	d.Set("location", appService.Location)
+	d.Set("resource_group_name", resourceGroup)
 	return nil
 }
 
@@ -149,6 +156,15 @@ func resourceArmAppServiceVirtualNetworkAssociationDelete(d *schema.ResourceData
 			return nil
 		}
 		return fmt.Errorf("Error making read request on virtual network properties (App Service %q / Resource Group %q): %+v", name, resourceGroup, err)
+	}
+	if read.SwiftVirtualNetworkProperties == nil {
+		return fmt.Errorf("Error retrieving virtual network properties (App Service %q / Resource Group %q): `properties` was nil", name, resourceGroup)
+	}
+	props := *read.SwiftVirtualNetworkProperties
+	subnet := props.SubnetResourceID
+	if subnet == nil || *subnet == "" {
+		// assume deleted
+		return nil
 	}
 
 	resp, err := client.DeleteSwiftVirtualNetwork(ctx, resourceGroup, name)
