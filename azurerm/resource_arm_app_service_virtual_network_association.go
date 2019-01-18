@@ -103,10 +103,18 @@ func resourceArmAppServiceVirtualNetworkAssociationRead(d *schema.ResourceData, 
 
 	appService, err := client.Get(ctx, resourceGroup, name)
 	if err != nil {
+		if utils.ResponseWasNotFound(appService.Response) {
+			d.SetId("")
+			return nil
+		}
 		return err
 	}
 	resp, err := client.GetSwiftVirtualNetworkConnection(ctx, resourceGroup, name)
 	if err != nil {
+		if utils.ResponseWasNotFound(resp.Response) {
+			d.SetId("")
+			return nil
+		}
 		return err
 	}
 
@@ -149,6 +157,14 @@ func resourceArmAppServiceVirtualNetworkAssociationDelete(d *schema.ResourceData
 	azureRMLockByName(subnetName, subnetResourceName)
 	defer azureRMUnlockByName(subnetName, subnetResourceName)
 
+	appService, err := client.Get(ctx, resourceGroup, name)
+	if err != nil {
+		if utils.ResponseWasNotFound(appService.Response) {
+			// assume deleted
+			return nil
+		}
+		return err
+	}
 	read, err := client.GetSwiftVirtualNetworkConnection(ctx, resourceGroup, name)
 	if err != nil {
 		if utils.ResponseWasNotFound(read.Response) {
