@@ -1,7 +1,7 @@
 ---
 layout: "azurerm"
 page_title: "Azure Resource Manager: azurerm_application_gateway"
-sidebar_current: "docs-azurerm-resource-application-gateway"
+sidebar_current: "docs-azurerm-resource-network-application-gateway"
 description: |-
   Manages an Application Gateway.
 ---
@@ -171,9 +171,13 @@ A `backend_address_pool` block supports the following:
 
 * `name` - (Required) The name of the Backend Address Pool.
 
-* `fqdn_list` - (Optional) A list of FQDN's which should be part of the Backend Address Pool.
+* `fqdns` - (Optional) A list of FQDN's which should be part of the Backend Address Pool.
 
-* `ip_address_list` - (Optional) A list of IP Addresses which should be part of the Backend Address Pool.
+* `fqdn_list` - (Optional **Deprecated**) A list of FQDN's which should be part of the Backend Address Pool. This field has been deprecated in favour of `fqdns` and will be removed in v2.0 of the AzureRM Provider.
+
+* `ip_addresses` - (Optional) A list of IP Addresses which should be part of the Backend Address Pool.
+
+* `ip_address_list` - (Optional **Deprecated**) A list of IP Addresses which should be part of the Backend Address Pool. This field has been deprecated in favour of `ip_addresses` and will be removed in v2.0 of the AzureRM Provider.
 
 ---
 
@@ -358,6 +362,8 @@ The following attributes are exported:
 * `frontend_port` - A list of `frontend_port` blocks as defined below.
 
 * `gateway_ip_configuration` - A list of `gateway_ip_configuration` blocks as defined below.
+
+* `http2_enabled` - (Optional) Is HTTP2 enabled on the application gateway resource? Defaults to `false`.
 
 * `http_listener` - A list of `http_listener` blocks as defined below.
 

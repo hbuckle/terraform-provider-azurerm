@@ -27,6 +27,7 @@ func TestAccAzureRMNetworkWatcher(t *testing.T) {
 			"storageAccount":             testAccAzureRMPacketCapture_storageAccount,
 			"storageAccountAndLocalDisk": testAccAzureRMPacketCapture_storageAccountAndLocalDisk,
 			"withFilters":                testAccAzureRMPacketCapture_withFilters,
+			"requiresImport":             testAccAzureRMPacketCapture_requiresImport,
 		},
 	}
 
@@ -46,7 +47,7 @@ func TestAccAzureRMNetworkWatcher(t *testing.T) {
 func testAccAzureRMNetworkWatcher_basic(t *testing.T) {
 	resourceName := "azurerm_network_watcher.test"
 	rInt := tf.AccRandTimeInt()
-	resource.ParallelTest(t, resource.TestCase{
+	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMNetworkWatcherDestroy,
@@ -69,7 +70,7 @@ func testAccAzureRMNetworkWatcher_basic(t *testing.T) {
 func testAccAzureRMNetworkWatcher_complete(t *testing.T) {
 	resourceName := "azurerm_network_watcher.test"
 	rInt := tf.AccRandTimeInt()
-	resource.ParallelTest(t, resource.TestCase{
+	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMNetworkWatcherDestroy,
@@ -92,7 +93,8 @@ func testAccAzureRMNetworkWatcher_complete(t *testing.T) {
 func testAccAzureRMNetworkWatcher_update(t *testing.T) {
 	resourceName := "azurerm_network_watcher.test"
 	rInt := tf.AccRandTimeInt()
-	resource.ParallelTest(t, resource.TestCase{
+
+	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMNetworkWatcherDestroy,
@@ -117,7 +119,7 @@ func testAccAzureRMNetworkWatcher_disappears(t *testing.T) {
 	resourceName := "azurerm_network_watcher.test"
 	rInt := tf.AccRandTimeInt()
 
-	resource.ParallelTest(t, resource.TestCase{
+	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
 		Providers:    testAccProviders,
 		CheckDestroy: testCheckAzureRMNetworkWatcherDestroy,

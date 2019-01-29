@@ -9,11 +9,26 @@ import (
 	"github.com/hashicorp/terraform/helper/validation"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/azure"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/suppress"
+	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/helpers/tf"
 	"github.com/terraform-providers/terraform-provider-azurerm/azurerm/utils"
 )
 
+/*
+TODO: refactor this:
+
+ * resource_group_name/workspace_name can become case-sensitive
+ * linked_service_properties should be a list / removed in favour of the top level element?
+ * we can remove `workspace` from the resource name?
+*/
 func resourceArmLogAnalyticsWorkspaceLinkedService() *schema.Resource {
 	return &schema.Resource{
+		DeprecationMessage: `The 'azurerm_log_analytics_workspace_linked_service' resource is deprecated in favour of the renamed version 'azurerm_log_analytics_linked_service'.
+
+Information on migrating to the renamed resource can be found here: https://terraform.io/docs/providers/azurerm/guides/migrating-between-renamed-resources.html
+
+As such the existing 'azurerm_log_analytics_workspace_linked_service' resource is deprecated and will be removed in the next major version of the AzureRM Provider (2.0).
+`,
+
 		Create: resourceArmLogAnalyticsWorkspaceLinkedServiceCreateUpdate,
 		Read:   resourceArmLogAnalyticsWorkspaceLinkedServiceRead,
 		Update: resourceArmLogAnalyticsWorkspaceLinkedServiceCreateUpdate,
@@ -35,16 +50,27 @@ func resourceArmLogAnalyticsWorkspaceLinkedService() *schema.Resource {
 			},
 
 			"linked_service_name": {
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+				Default:  "automation",
+				ValidateFunc: validation.StringInSlice([]string{
+					"automation",
+				}, false),
+			},
+
+			"resource_id": {
 				Type:         schema.TypeString,
 				Optional:     true,
+				Computed:     true,
 				ForceNew:     true,
-				Default:      "automation",
-				ValidateFunc: validation.StringInSlice([]string{"automation"}, false),
+				ValidateFunc: azure.ValidateResourceID,
 			},
 
 			"linked_service_properties": {
 				Type:     schema.TypeMap,
-				Required: true,
+				Optional: true,
+				Computed: true,
 				ForceNew: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
@@ -53,6 +79,10 @@ func resourceArmLogAnalyticsWorkspaceLinkedService() *schema.Resource {
 							Required:     true,
 							ForceNew:     true,
 							ValidateFunc: azure.ValidateResourceID,
+							ConflictsWith: []string{
+								// this is the top-level field, not this one
+								"resource_id",
+							},
 						},
 					},
 				},
@@ -73,40 +103,57 @@ func resourceArmLogAnalyticsWorkspaceLinkedServiceCreateUpdate(d *schema.Resourc
 	client := meta.(*ArmClient).linkedServicesClient
 	ctx := meta.(*ArmClient).StopContext
 
-	log.Printf("[INFO] preparing arguments for AzureRM Log Analytics linked services creation.")
+	log.Printf("[INFO] preparing arguments for AzureRM Log Analytics Linked Services creation.")
 
 	resGroup := d.Get("resource_group_name").(string)
 	workspaceName := d.Get("workspace_name").(string)
 	lsName := d.Get("linked_service_name").(string)
 
-	props := d.Get("linked_service_properties").(map[string]interface{})
-	resourceID := props["resource_id"].(string)
+	if requireResourcesToBeImported && d.IsNewResource() {
+		existing, err := client.Get(ctx, resGroup, workspaceName, lsName)
+		if err != nil {
+			if !utils.ResponseWasNotFound(existing.Response) {
+				return fmt.Errorf("Error checking for presence of existing Linked Service %q (Workspace %q / Resource Group %q): %s", lsName, workspaceName, resGroup, err)
+			}
+		}
 
+		if existing.ID != nil && *existing.ID != "" {
+			return tf.ImportAsExistsError("azurerm_log_analytics_workspace_linked_service", *existing.ID)
+		}
+	}
+
+	resourceId := d.Get("resource_id").(string)
+	if resourceId == "" {
+		props := d.Get("linked_service_properties").(map[string]interface{})
+		resourceId = props["resource_id"].(string)
+		if resourceId == "" {
+			return fmt.Errorf("A `resource_id` must be specified either using the `resource_id` field at the top level or within the `linked_service_properties` block")
+		}
+	}
 	tags := d.Get("tags").(map[string]interface{})
 
 	parameters := operationalinsights.LinkedService{
-		Tags: expandTags(tags),
 		LinkedServiceProperties: &operationalinsights.LinkedServiceProperties{
-			ResourceID: &resourceID,
+			ResourceID: utils.String(resourceId),
 		},
+		Tags: expandTags(tags),
 	}
 
 	if _, err := client.CreateOrUpdate(ctx, resGroup, workspaceName, lsName, parameters); err != nil {
-		return fmt.Errorf("Error issuing create request for Log Analytics Workspace Linked Service %q/%q (Resource Group %q): %+v", workspaceName, lsName, resGroup, err)
+		return fmt.Errorf("Error creating Linked Service %q (Workspace %q / Resource Group %q): %+v", lsName, workspaceName, resGroup, err)
 	}
 
 	read, err := client.Get(ctx, resGroup, workspaceName, lsName)
 	if err != nil {
-		return fmt.Errorf("Error retrieving Analytics Workspace Linked Service %q/%q (Resource Group %q): %+v", workspaceName, lsName, resGroup, err)
+		return fmt.Errorf("Error retrieving Linked Service %q (Worksppce %q / Resource Group %q): %+v", lsName, workspaceName, resGroup, err)
 	}
 	if read.ID == nil {
-		return fmt.Errorf("Cannot read Log Analytics Linked Service '%s' (resource group %s) ID", lsName, resGroup)
+		return fmt.Errorf("Cannot read Linked Service %q (Workspace %q / Resource Group %q) ID", lsName, workspaceName, resGroup)
 	}
 
 	d.SetId(*read.ID)
 
 	return resourceArmLogAnalyticsWorkspaceLinkedServiceRead(d, meta)
-
 }
 
 func resourceArmLogAnalyticsWorkspaceLinkedServiceRead(d *schema.ResourceData, meta interface{}) error {
@@ -120,7 +167,7 @@ func resourceArmLogAnalyticsWorkspaceLinkedServiceRead(d *schema.ResourceData, m
 
 	resGroup := id.ResourceGroup
 	workspaceName := id.Path["workspaces"]
-	lsName := id.Path["linkedservices"]
+	lsName := id.Path["linkedServices"]
 
 	resp, err := client.Get(ctx, resGroup, workspaceName, lsName)
 	if err != nil {
@@ -135,29 +182,22 @@ func resourceArmLogAnalyticsWorkspaceLinkedServiceRead(d *schema.ResourceData, m
 		return nil
 	}
 
-	d.Set("name", *resp.Name)
+	d.Set("name", resp.Name)
 	d.Set("resource_group_name", resGroup)
 	d.Set("workspace_name", workspaceName)
 	d.Set("linked_service_name", lsName)
 
+	if props := resp.LinkedServiceProperties; props != nil {
+		d.Set("resource_id", props.ResourceID)
+	}
+
 	linkedServiceProperties := flattenLogAnalyticsWorkspaceLinkedServiceProperties(resp.LinkedServiceProperties)
 	if err := d.Set("linked_service_properties", linkedServiceProperties); err != nil {
-		return fmt.Errorf("Error setting Log Analytics Linked Service Properties: %+v", err)
+		return fmt.Errorf("Error setting `linked_service_properties`: %+v", err)
 	}
 
 	flattenAndSetTags(d, resp.Tags)
 	return nil
-}
-
-func flattenLogAnalyticsWorkspaceLinkedServiceProperties(input *operationalinsights.LinkedServiceProperties) interface{} {
-	properties := make(map[string]interface{})
-
-	// resource id linked service
-	if resourceID := input.ResourceID; resourceID != nil {
-		properties["resource_id"] = interface{}(*resourceID)
-	}
-
-	return interface{}(properties)
 }
 
 func resourceArmLogAnalyticsWorkspaceLinkedServiceDelete(d *schema.ResourceData, meta interface{}) error {
@@ -171,7 +211,7 @@ func resourceArmLogAnalyticsWorkspaceLinkedServiceDelete(d *schema.ResourceData,
 
 	resGroup := id.ResourceGroup
 	workspaceName := id.Path["workspaces"]
-	lsName := id.Path["linkedservices"]
+	lsName := id.Path["linkedServices"]
 
 	resp, err := client.Delete(ctx, resGroup, workspaceName, lsName)
 	if err != nil {
@@ -179,8 +219,23 @@ func resourceArmLogAnalyticsWorkspaceLinkedServiceDelete(d *schema.ResourceData,
 			return nil
 		}
 
-		return fmt.Errorf("Error issuing AzureRM delete request for Log Analytics Linked Service '%s': %+v", lsName, err)
+		return fmt.Errorf("Error deleting Linked Service %q (Workspace %q / Resource Group %q): %+v", lsName, workspaceName, resGroup, err)
 	}
 
 	return nil
+}
+
+func flattenLogAnalyticsWorkspaceLinkedServiceProperties(input *operationalinsights.LinkedServiceProperties) interface{} {
+	if input == nil {
+		return []interface{}{}
+	}
+
+	properties := make(map[string]interface{})
+
+	// resource id linked service
+	if resourceID := input.ResourceID; resourceID != nil {
+		properties["resource_id"] = interface{}(*resourceID)
+	}
+
+	return interface{}(properties)
 }

@@ -18,6 +18,13 @@ import (
 
 func resourceArmAutoScaleSetting() *schema.Resource {
 	return &schema.Resource{
+		DeprecationMessage: `The 'azurerm_autoscale_setting' resource is deprecated in favour of the renamed version 'azurerm_monitor_autoscale_setting'.
+
+Information on migrating to the renamed resource can be found here: https://terraform.io/docs/providers/azurerm/guides/migrating-between-renamed-resources.html
+
+As such the existing 'azurerm_autoscale_setting' resource is deprecated and will be removed in the next major version of the AzureRM Provider (2.0).
+`,
+
 		Create: resourceArmAutoScaleSettingCreateUpdate,
 		Read:   resourceArmAutoScaleSettingRead,
 		Update: resourceArmAutoScaleSettingCreateUpdate,
