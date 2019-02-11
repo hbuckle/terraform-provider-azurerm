@@ -101,16 +101,18 @@ func resourceArmNetworkInterfaceApplicationSecurityGroupAssociationCreate(d *sch
 	applicationSecurityGroups := make([]network.ApplicationSecurityGroup, 0)
 
 	// first double-check it doesn't exist
-	if requireResourcesToBeImported {
-		if p.ApplicationSecurityGroups != nil {
-			for _, existingGroup := range *p.ApplicationSecurityGroups {
-				if id := existingGroup.ID; id != nil {
-					if *id == applicationSecurityGroupId {
+	if p.ApplicationSecurityGroups != nil {
+		for _, existingGroup := range *p.ApplicationSecurityGroups {
+			if id := existingGroup.ID; id != nil {
+				if *id == applicationSecurityGroupId {
+					if requireResourcesToBeImported {
 						return tf.ImportAsExistsError("azurerm_network_interface_application_security_group_association", *id)
 					}
 
-					applicationSecurityGroups = append(applicationSecurityGroups, existingGroup)
+					continue
 				}
+
+				applicationSecurityGroups = append(applicationSecurityGroups, existingGroup)
 			}
 		}
 	}
