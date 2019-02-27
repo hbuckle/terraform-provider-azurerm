@@ -1,4 +1,13 @@
-## 1.23.0 (Unreleased)
+## 1.22.1 (February 14, 2019)
+
+BUG FIXES:
+
+* `azurerm_key_vault_access_policy` - will no longer fail to find the Key Vault if `key_vault_id` is empty ([#2874](https://github.com/terraform-providers/terraform-provider-azurerm/issues/2874))
+* `azurerm_key_vault_certificate` - will no longer fail to find the Key Vault if `key_vault_id` is ([#2874](https://github.com/terraform-providers/terraform-provider-azurerm/issues/2874))
+* `azurerm_key_vault_key` - will no longer fail to find the Key Vault if `key_vault_id` is ([#2874](https://github.com/terraform-providers/terraform-provider-azurerm/issues/2874))
+* `azurerm_key_vault_secret` - will no longer fail to find the Key Vault if `key_vault_id` is ([#2874](https://github.com/terraform-providers/terraform-provider-azurerm/issues/2874))
+* `azurerm_storage_container` - support for large numbers of containers within a storage account ([#2873](https://github.com/terraform-providers/terraform-provider-azurerm/issues/2873))
+
 ## 1.22.0 (February 11, 2019)
 
 UPGRADE NOTES:
@@ -20,7 +29,6 @@ FEATURES:
 * **New Resource:** `azurerm_network_interface_application_security_group_association` ([#2789](https://github.com/terraform-providers/terraform-provider-azurerm/issues/2789))
 
 DEPRECATIONS:
-
 
 * Data Source `azurerm_key_vault_key` - deprecating the `vault_uri` property in favour of `key_vault_id` ([#2820](https://github.com/terraform-providers/terraform-provider-azurerm/issues/2820))
 * Data Source `azurerm_key_vault_secret` - deprecating the `vault_uri` property in favour of `key_vault_id` ([#2820](https://github.com/terraform-providers/terraform-provider-azurerm/issues/2820))
