@@ -507,7 +507,7 @@ func TestAccAzureRMVirtualMachineScaleSet_customImage(t *testing.T) {
 	hostName := fmt.Sprintf("tftestcustomimagesrc%d", ri)
 	sshPort := "22"
 	config := testAccAzureRMVirtualMachineScaleSet_customImage(ri, testLocation(), userName, password, hostName)
-	preConfig := testAccAzureRMImage_standaloneImage_setup(ri, userName, password, hostName, testLocation())
+	preConfig := testAccAzureRMImage_standaloneImage_setup(ri, userName, password, hostName, testLocation(), "LRS")
 
 	resource.ParallelTest(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
@@ -1318,7 +1318,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -1335,6 +1335,7 @@ resource "azurerm_virtual_machine_scale_set" "test" {
   location            = "${azurerm_resource_group.test.location}"
   resource_group_name = "${azurerm_resource_group.test.name}"
   upgrade_policy_mode = "Manual"
+  zones               = []
 
   sku {
     name     = "Standard_D1_v2"
@@ -1455,7 +1456,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -1543,7 +1544,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -1630,7 +1631,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -1728,7 +1729,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -1815,7 +1816,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -1902,7 +1903,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -1989,7 +1990,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -2079,7 +2080,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -2169,7 +2170,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -2268,7 +2269,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -2363,7 +2364,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -2653,7 +2654,7 @@ resource "azurerm_virtual_machine_scale_set" "test" {
     version   = "latest"
   }
 
-  tags {
+  tags = {
     ThisIs = "a test"
   }
 }
@@ -3252,7 +3253,7 @@ resource "azurerm_application_gateway" "test" {
     backend_http_settings_name = "backend-http-1"
   }
 
-  tags {
+  tags = {
     environment = "tf01"
   }
 }
@@ -4266,7 +4267,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }
@@ -4445,7 +4446,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "Dev"
   }
 }
@@ -4489,7 +4490,7 @@ resource "azurerm_virtual_machine" "testsource" {
     disable_password_authentication = false
   }
 
-  tags {
+  tags = {
     environment = "Dev"
     cost-center = "Ops"
   }
@@ -4508,7 +4509,7 @@ resource "azurerm_image" "test" {
     caching  = "None"
   }
 
-  tags {
+  tags = {
     environment = "Dev"
     cost-center = "Ops"
   }
@@ -4584,7 +4585,7 @@ resource "azurerm_storage_account" "test" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  tags {
+  tags = {
     environment = "staging"
   }
 }

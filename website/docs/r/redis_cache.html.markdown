@@ -48,6 +48,7 @@ resource "azurerm_redis_cache" "test" {
   family              = "C"
   sku_name            = "Standard"
   enable_non_ssl_port = false
+  minimum_tls_version = "1.2"
 }
 ```
 
@@ -135,6 +136,8 @@ The pricing group for the Redis Family - either "C" or "P" at present.
 
 * `enable_non_ssl_port` - (Optional) Enable the non-SSL port (6789) - disabled by default.
 
+* `minimum_tls_version` - (Optional) The minimum TLS version.  Defaults to `1.0`.
+
 * `patch_schedule` - (Optional) A list of `patch_schedule` blocks as defined below - only available for Premium SKU's.
 
 * `private_static_ip_address` - (Optional) The Static IP Address to assign to the Redis Cache when hosted inside the Virtual Network. Changing this forces a new resource to be created.
@@ -157,6 +160,8 @@ The pricing group for the Redis Family - either "C" or "P" at present.
 * `maxmemory_reserved` - (Optional) Value in megabytes reserved for non-cache usage e.g. failover. Defaults are shown below.
 * `maxmemory_delta` - (Optional) The max-memory delta for this Redis instance. Defaults are shown below.
 * `maxmemory_policy` - (Optional) How Redis will select what to remove when `maxmemory` is reached. Defaults are shown below.
+
+* `maxfragmentationmemory_reserved` - (Optional) Value in megabytes reserved to accommodate for memory fragmentation. Defaults are shown below.
 
 * `rdb_backup_enabled` - (Optional) Is Backup Enabled? Only supported on Premium SKU's.
 * `rdb_backup_frequency` - (Optional) The Backup Frequency in Minutes. Only supported on Premium SKU's. Possible values are: `15`, `30`, `60`, `360`, `720` and `1440`.
@@ -183,13 +188,14 @@ redis_configuration {
 ```
 
 ## Default Redis Configuration Values
-| Redis Value        | Basic        | Standard     | Premium      |
-| ------------------ | ------------ | ------------ | ------------ |
-| maxmemory_reserved | 2            | 50           | 200          |
-| maxmemory_delta    | 2            | 50           | 200          |
-| maxmemory_policy   | volatile-lru | volatile-lru | volatile-lru |
+| Redis Value                     | Basic        | Standard     | Premium      |
+| ------------------------------- | ------------ | ------------ | ------------ |
+| maxmemory_reserved              | 2            | 50           | 200          |
+| maxfragmentationmemory_reserved | 2            | 50           | 200          |
+| maxmemory_delta                 | 2            | 50           | 200          |
+| maxmemory_policy                | volatile-lru | volatile-lru | volatile-lru |
 
-_*Important*: The `maxmemory_reserved` and `maxmemory_delta` settings are only available for Standard and Premium caches. More details are available in the Relevant Links section below._
+_*Important*: The `maxmemory_reserved`, `maxmemory_delta` and `maxfragmentationmemory-reserved` settings are only available for Standard and Premium caches. More details are available in the Relevant Links section below._
 
 * `patch_schedule` supports the following:
 

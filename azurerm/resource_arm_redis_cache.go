@@ -72,6 +72,17 @@ func resourceArmRedisCache() *schema.Resource {
 				DiffSuppressFunc: ignoreCaseDiffSuppressFunc,
 			},
 
+			"minimum_tls_version": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  redis.OneFullStopZero,
+				ValidateFunc: validation.StringInSlice([]string{
+					string(redis.OneFullStopZero),
+					string(redis.OneFullStopOne),
+					string(redis.OneFullStopTwo),
+				}, false),
+			},
+
 			"shard_count": {
 				Type:     schema.TypeInt,
 				Optional: true,
@@ -125,6 +136,13 @@ func resourceArmRedisCache() *schema.Resource {
 							Default:      "volatile-lru",
 							ValidateFunc: validateRedisMaxMemoryPolicy,
 						},
+
+						"maxfragmentationmemory_reserved": {
+							Type:     schema.TypeInt,
+							Optional: true,
+							Computed: true,
+						},
+
 						"rdb_backup_enabled": {
 							Type:     schema.TypeBool,
 							Optional: true,
@@ -248,6 +266,7 @@ func resourceArmRedisCacheCreate(d *schema.ResourceData, meta interface{}) error
 				Family:   family,
 				Name:     sku,
 			},
+			MinimumTLSVersion:  redis.TLSVersion(d.Get("minimum_tls_version").(string)),
 			RedisConfiguration: expandRedisConfiguration(d),
 		},
 		Tags: expandedTags,
@@ -341,7 +360,8 @@ func resourceArmRedisCacheUpdate(d *schema.ResourceData, meta interface{}) error
 
 	parameters := redis.UpdateParameters{
 		UpdateProperties: &redis.UpdateProperties{
-			EnableNonSslPort: utils.Bool(enableNonSSLPort),
+			MinimumTLSVersion: redis.TLSVersion(d.Get("minimum_tls_version").(string)),
+			EnableNonSslPort:  utils.Bool(enableNonSSLPort),
 			Sku: &redis.Sku{
 				Capacity: utils.Int32(capacity),
 				Family:   family,
@@ -466,6 +486,7 @@ func resourceArmRedisCacheRead(d *schema.ResourceData, meta interface{}) error {
 	if props := resp.Properties; props != nil {
 		d.Set("ssl_port", props.SslPort)
 		d.Set("hostname", props.HostName)
+		d.Set("minimum_tls_version", string(props.MinimumTLSVersion))
 		d.Set("port", props.Port)
 		d.Set("enable_non_ssl_port", props.EnableNonSslPort)
 		if props.ShardCount != nil {
@@ -575,6 +596,11 @@ func expandRedisConfiguration(d *schema.ResourceData) map[string]*string {
 		output["maxmemory-policy"] = utils.String(v.(string))
 	}
 
+	if v, ok := d.GetOk("redis_configuration.0.maxfragmentationmemory_reserved"); ok {
+		delta := strconv.Itoa(v.(int))
+		output["maxfragmentationmemory-reserved"] = utils.String(delta)
+	}
+
 	// Backup
 	if v, ok := d.GetOk("redis_configuration.0.rdb_backup_enabled"); ok {
 		delta := strconv.FormatBool(v.(bool))
@@ -656,6 +682,14 @@ func flattenRedisConfiguration(input map[string]*string) ([]interface{}, error) 
 	}
 	if v := input["maxmemory-policy"]; v != nil {
 		outputs["maxmemory_policy"] = *v
+	}
+
+	if v := input["maxfragmentationmemory-reserved"]; v != nil {
+		i, err := strconv.Atoi(*v)
+		if err != nil {
+			return nil, fmt.Errorf("Error parsing `maxfragmentationmemory-reserved` %q: %+v", *v, err)
+		}
+		outputs["maxfragmentationmemory_reserved"] = i
 	}
 
 	// delta, reserved, enabled, frequency,, count,

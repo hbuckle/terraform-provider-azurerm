@@ -102,6 +102,37 @@ func TestAccAzureRMIotHub_customRoutes(t *testing.T) {
 				Config: testAccAzureRMIotHub_customRoutes(rInt, rStr, testLocation()),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckAzureRMIotHubExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "endpoint.#", "2"),
+					resource.TestCheckResourceAttr(resourceName, "endpoint.0.type", "AzureIotHub.StorageContainer"),
+					resource.TestCheckResourceAttr(resourceName, "endpoint.1.type", "AzureIotHub.EventHub"),
+					resource.TestCheckResourceAttr(resourceName, "route.#", "2"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccAzureRMIotHub_fallbackRoute(t *testing.T) {
+	resourceName := "azurerm_iothub.test"
+	rInt := tf.AccRandTimeInt()
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testCheckAzureRMIotHubDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccAzureRMIotHub_fallbackRoute(rInt, testLocation()),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckAzureRMIotHubExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "fallback_route.0.source", "DeviceMessages"),
+					resource.TestCheckResourceAttr(resourceName, "fallback_route.0.endpoint_names.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "fallback_route.0.enabled", "true"),
 				),
 			},
 			{
@@ -262,6 +293,29 @@ resource "azurerm_storage_container" "test" {
   container_access_type = "private"
 }
 
+resource "azurerm_eventhub_namespace" "test" {
+  resource_group_name = "${azurerm_resource_group.test.name}"
+  location            = "${azurerm_resource_group.test.location}"
+  name                = "acctest-%d"
+  sku                 = "Basic"
+}
+
+resource "azurerm_eventhub" "test" {
+  name                = "acctest"
+  resource_group_name = "${azurerm_resource_group.test.name}"
+  namespace_name      = "${azurerm_eventhub_namespace.test.name}"
+  partition_count     = 2
+  message_retention   = 1
+}
+
+resource "azurerm_eventhub_authorization_rule" "test" {
+  resource_group_name = "${azurerm_resource_group.test.name}"
+  namespace_name      = "${azurerm_eventhub_namespace.test.name}"
+  eventhub_name       = "${azurerm_eventhub.test.name}"
+  name                = "acctest"
+  send                = true  
+}
+
 resource "azurerm_iothub" "test" {
   name                = "acctestIoTHub-%d"
   resource_group_name = "${azurerm_resource_group.test.name}"
@@ -284,6 +338,12 @@ resource "azurerm_iothub" "test" {
     file_name_format           = "{iothub}/{partition}_{YYYY}_{MM}_{DD}_{HH}_{mm}"
   }
 
+  endpoint {
+    type              = "AzureIotHub.EventHub"
+    connection_string = "${azurerm_eventhub_authorization_rule.test.primary_connection_string}"
+    name              = "export2"
+  }
+
   route {
     name           = "export"
     source         = "DeviceMessages"
@@ -292,9 +352,48 @@ resource "azurerm_iothub" "test" {
     enabled        = true
   }
 
+  route {
+    name           = "export2"
+    source         = "DeviceMessages"
+    condition      = "true"
+    endpoint_names = ["export2"]
+    enabled        = true
+  }
+
   tags {
     "purpose" = "testing"
   }
 }
-`, rInt, location, rStr, rInt)
+`, rInt, location, rStr, rInt, rInt)
+}
+
+func testAccAzureRMIotHub_fallbackRoute(rInt int, location string) string {
+	return fmt.Sprintf(`
+resource "azurerm_resource_group" "test" {
+  name     = "acctestRG-%d"
+  location = "%s"
+}
+
+resource "azurerm_iothub" "test" {
+  name                  = "acctestIoTHub-%d"
+  resource_group_name   = "${azurerm_resource_group.test.name}"
+  location              = "${azurerm_resource_group.test.location}"
+
+  sku {
+    name     = "S1"
+    tier     = "Standard"
+    capacity = "1"
+  }
+
+  fallback_route {
+    source         = "DeviceMessages"
+    endpoint_names = ["events"]
+    enabled        = true
+  }
+
+	tags {
+    "purpose" = "testing"
+  }
+}
+`, rInt, location, rInt)
 }
